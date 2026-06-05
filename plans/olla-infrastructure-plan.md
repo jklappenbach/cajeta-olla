@@ -21,7 +21,7 @@ the system of record; Algolia is a derived search index.** Total recurring cost
   the pot caramel is cooked in; memorable via the Ollama echo, which the owner
   considers an asset). Chosen over *Cazo* / *Paila*.
 - **Own repository.** Olla (registry *server* + its web/API) lives in **this**
-  git repo (`olla`), separate from the `cajeta` compiler repo. (See
+  git repo (`cajeta-olla`), separate from the `cajeta` compiler repo. (See
   cajeta-site-plan.md §1.1 for the full repo-boundary decision — why the site
   stays in-repo while Olla splits out.) Rationale: different stack (web/TS
   service vs C++/LLVM), a live service with its own security surface and deploy
