@@ -1,0 +1,28 @@
+{
+  "name": "cajeta-olla",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Olla — the package registry for the Cajeta programming language (olla.cajeta.dev)",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "migrate:local": "wrangler d1 migrations apply olla-catalog --local",
+    "migrate:remote": "wrangler d1 migrations apply olla-catalog --remote",
+    "seed:local": "node scripts/seed.mjs",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:conformance": "vitest run test/conformance"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260601.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "wrangler": "^3.78.0"
+  },
+  "dependencies": {
+    "@bokuweb/zstd-wasm": "^0.0.27",
+    "hono": "^4.5.8"
+  }
+}

@@ -1,0 +1,29 @@
+{
+    // Demo: resolve real dependencies from a locally-running Olla.
+    // Start Olla first:  (cd ../.. && npm run dev)  then seed it, then:
+    //   cajeta info --resolve-time   (or --resolved / --write-lockfile)
+    "details": {
+        "name":                "com.example.olla-demo",
+        "version":             "0.1.0",
+        "description":         "Resolves com.acme.* from a local Olla registry",
+        "cajeta-lang-version": "1.0"
+    },
+    "settings": {
+        "dependencies": {
+            "com.acme.widgets": ">=1.0.0"
+        },
+        "repositories": [
+            { "name": "local-olla", "type": "http",
+              "url": "http://localhost:8787", "priority": 10 }
+        ],
+        "build": {
+            "target":       "host",
+            "entry-method": "com.example.olla_demo.Main::main"
+        }
+    },
+    "tasks": {
+        "build": {
+            "actions": [ { "action": "build", "flavor": "debug", "id": "art" } ]
+        }
+    }
+}

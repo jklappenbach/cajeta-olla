@@ -1,0 +1,41 @@
+# Olla — Cajeta package registry Worker.
+#
+# Local dev: `npm run dev` (wrangler dev) runs the Worker with Miniflare,
+# which emulates D1 + R2 entirely on-disk — no Cloudflare account needed.
+# Apply migrations first with `npm run migrate:local`.
+#
+# The Worker is a pure JSON/bytes API (no static-asset binding) so an
+# unknown route returns 404 JSON per the protocol spec (§7). The web UI
+# (ui/) is a separate Vite app that proxies to this origin in dev and
+# deploys to Cloudflare Pages on the same origin in prod.
+
+name = "cajeta-olla"
+main = "src/index.ts"
+compatibility_date = "2025-07-18"
+workers_dev = true
+
+# Catalog (system of record for metadata). The placeholder database_id is
+# fine for `--local`; replace with the real id from `wrangler d1 create
+# olla-catalog` before any `--remote` apply / deploy.
+[[d1_databases]]
+binding = "DB"
+database_name = "olla-catalog"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Artifact bytes (content-addressed at blob/<sha256>).
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "olla-artifacts"
+
+[vars]
+# Capability document (§9). TTL the client caches the probe for.
+CAPABILITY_TTL_SECONDS = "3600"
+# Comma-separated <name>@<version> bundles advertised under
+# capabilities.well-known-bundles.
+WELL_KNOWN_BUNDLES = "stdlib@1.0.0"
+# Search backend: "d1" (built-in FTS5 trigram) or "algolia" (§12).
+SEARCH_PROVIDER = "d1"
+# DEV ONLY: allow unsigned publishes (no detached .sig required). Never
+# set in production — override to "0" there.
+ALLOW_UNSIGNED = "1"

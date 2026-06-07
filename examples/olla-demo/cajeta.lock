@@ -1,0 +1,24 @@
+{
+  "generator": {
+    "tool": "cajeta",
+    "version": "0.5.1"
+  },
+  "lockfile-version": 1,
+  "manifest-checksum": "sha256:7f956ce83ab3b05107bc09a5d21dd360b54cb0d100577b499946ab4f9b091c40",
+  "melts": [],
+  "overrides": [],
+  "packages": [],
+  "plugins": [],
+  "properties": {
+    "cajeta.version": "0.5.1",
+    "details.group": "com.example",
+    "details.library": "olla-demo",
+    "details.name": "com.example.olla-demo",
+    "details.version": "0.1.0",
+    "flavor": "",
+    "profile": "",
+    "target": "",
+    "workspace.root": ""
+  },
+  "resolved-at": "2026-06-07T18:43:27Z"
+}
