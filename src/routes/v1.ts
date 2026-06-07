@@ -9,7 +9,7 @@
 // v1 responses do NOT carry the Cajeta-Capability-Version header.
 import { Hono } from 'hono';
 import type { Env } from '../types';
-import { getVersionStrings, getVersion, getTransparency } from '../lib/catalog';
+import { getVersionStrings, getVersion } from '../lib/catalog';
 import { getBlob } from '../lib/storage';
 import { toHex } from '../lib/sha';
 import { jsonError } from '../lib/http';
@@ -62,8 +62,9 @@ v1.get('/:pkg/:version/:filename', async (c) => {
   }
 
   if (filename === `${base}.sig`) {
-    const tl = await getTransparency(c.env, row.sha256);
-    const sigB64 = tl?.log_entry_signature ?? '';
+    // The publisher's detached 64-byte Ed25519 signature (base64 in the DB),
+    // served as raw bytes — exactly what the build tool wrote as `<archive>.sig`.
+    const sigB64 = row.signature ?? '';
     if (!sigB64) return jsonError(c, 404, 'no signature on record');
     const bytes = Uint8Array.from(atob(sigB64), (ch) => ch.charCodeAt(0));
     return new Response(bytes, {
@@ -77,6 +78,14 @@ v1.get('/:pkg/:version/:filename', async (c) => {
     return new Response(row.key_id, {
       status: 200,
       headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+
+  if (filename === `${base}.attestation`) {
+    if (!row.attestation) return jsonError(c, 404, 'no attestation on record');
+    return new Response(row.attestation, {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 

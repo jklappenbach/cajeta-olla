@@ -90,10 +90,14 @@ artifacts (`/v2/resolve` → `/v2/blob`, or the v1 artifact path).
 | `GET /:pkg/:version/manifest.json` | 11 | ✅ |
 | `GET /v2/resolve?name=&version=` | 11 | ✅ |
 | `GET /v2/blob/:sha` (ETag, Range, 304) | 13 | ✅ |
-| `GET /v2/search?q=&page=&hits=` | 12 | ✅ (D1 FTS5 trigram) |
-| `POST /v2/publish` (multipart) | 10 | ✅ |
+| `GET /v2/search?q=&page=&hits=` | 12 | ✅ (D1 FTS5 trigram, or Algolia) |
+| `POST /v2/reindex` (rebuild Algolia from D1) | 12 | ✅ |
+| `POST /v2/publish` (Ed25519 sig + attestation verified) | 10/15 | ✅ |
+| `GET /:pkg/:ver/:pkg-:ver.cja.attestation` | 15 | ✅ |
 | `POST /v2/retract` | 10 | ✅ |
-| `GET /v2/transparency-log/:sha` | 15 | ✅ (append-on-publish) |
+| `POST /v2/keys` (register trusted Ed25519 key) | 15 | ✅ |
+| `POST /v2/namespaces/verify` (DNS-TXT / github) | 15 | ✅ |
+| `GET /v2/transparency-log/:sha` (registry-signed entries) | 15 | ✅ |
 | `GET /v2/packages`, `/v2/package/:name` | — | ✅ (UI read surface) |
 | `POST /v2/bundle` (tar.zst, `have`/`want`/`transitive`) | 14 | ✅ (`capabilities.bundle=true`) |
 | `POST /v2/lockfile-diff` | 14 | ⏳ 404→fall-back-to-bundle (no snapshots yet) |
@@ -118,17 +122,64 @@ The `/v2/bundle` codec is byte-compatible with the client's
 `TarZstd.cpp` (POSIX ustar, zstd level 3, `<sha256-hex>.cja` members +
 `bundle.json`); verify with `zstd -dc bundle.tzst | tar -t`.
 
+## Signing & trust (§15)
+
+Publish verifies a **detached Ed25519 signature over the raw `.cja` bytes**
+against a trusted public key (Web Crypto `Ed25519` — byte-compatible with the
+build tool's OpenSSL `EVP_PKEY_ED25519` / `SignAction.cpp`):
+
+```sh
+# register a publisher's PEM public key
+curl -X POST $BASE/v2/keys -d '{"key-id":"acme-key-1","public-key":"-----BEGIN PUBLIC KEY-----…"}'
+# publish with the detached 64-byte sig + key-id (multipart fields signature, key-id)
+```
+
+A valid signature → 201; a tampered one → 400; an untrusted `key-id` → 403
+(unless `ALLOW_UNSIGNED=1`, the local dev bypass). Each publish also appends a
+transparency-log entry **signed by the registry's own Ed25519 log key**
+(`LOG_SIGNING_KEY_PEM` / `LOG_SIGNING_KEY_ID`), served at
+`/v2/transparency-log/:sha`. Namespace ownership (DNS-TXT `_cajeta-publish.<domain>`
+or `.github/cajeta-publish.txt`) is verified via `/v2/namespaces/verify` and
+enforced on publish when `REQUIRE_NAMESPACE=1`.
+
+**Attestation (provenance).** When a publish carries an `attestation` field, the
+registry verifies the in-toto Statement v1 / SLSA provenance v1 envelope
+exactly as the build tool's `verifyProvenanceJson` does — statement +
+predicate + `cajeta.org/build/v1` build type, required compiler/manifest
+fields, and the **subject digest bound to the published archive** (a
+mis-bound or malformed attestation → 400). The verified envelope is stored and
+served at the `<archive>.attestation` sidecar that `cajeta install` reads.
+
+## Search providers (§12)
+
+Default **D1 FTS5 trigram** (substring + typo tolerant, zero-config, kept in
+sync by triggers). Set `SEARCH_PROVIDER=algolia` + `ALGOLIA_APP_ID` /
+`ALGOLIA_API_KEY` (admin) / `ALGOLIA_INDEX` to use Algolia instead: publishes
+push to the index, retracts drop from it, and `POST /v2/reindex`
+(`scripts/reindex.mjs`) rebuilds from D1. Algolia errors degrade to D1 rather
+than failing the request.
+
+## Bundle dedup (§14)
+
+`/v2/bundle` compresses the solid tar at level 19 (`BUNDLE_ZSTD_LEVEL`), so a
+shared section dedups across members. `scripts/measure-dedup.sh` proves it
+(bundle / Σ-individual ≈ 0.5, gate < 0.95).
+
 ## Not yet implemented (next passes)
 
-- **Bundle `--long` / supercompress** (§14): the baseline solid-tar + zstd path
-  ships; large-window long-distance matching, store-only members, trained
-  dictionary, and content-defined chunking are the remaining dedup wins.
-- **`lockfile-diff` snapshots** (§14): the endpoint returns the protocol's
+- **supercompress** (§14): trained zstd dictionary + content-defined chunking,
+  and `--long` windows > 27 — all need a client that opts into the larger
+  window / dictionary, so `capabilities.supercompress` stays `false`.
+- **Store-only `.cja` ingestion** (§14): real archives are pre-compressed, so
+  cross-member matching needs store-only members — an archive-format/build-tool
+  concern, surfaced here in `measure-dedup.sh`'s note.
+- **`lockfile-diff` snapshots** (§14): returns the protocol's
   404→fall-back-to-`/v2/bundle`; server-side lockfile snapshotting is TODO.
-- **Real signature/attestation verification + namespace proof** (§15). Today:
-  bearer tokens (`publish_tokens`, hashed) with a dev bypass when
-  `ALLOW_UNSIGNED=1`; integrity (sha256) and immutability (409) are enforced.
-- **Algolia** search provider (§12) — D1 FTS5 trigram is the local default.
+- **Signed-DSSE attestations** (§15): provenance is verified structurally + by
+  digest binding today; the build tool ships the envelope unsigned, so when it
+  starts wrapping it in a signed DSSE envelope, verify that signature too.
+- **Token minting** (§15): `publish_tokens` verification works (with the dev
+  bypass); an admin mint/rotate endpoint is TODO.
 - **CI/CD + spec conformance suite** (§16), observability (§17).
 
 ## Dev notes

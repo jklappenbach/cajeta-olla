@@ -36,6 +36,15 @@ CAPABILITY_TTL_SECONDS = "3600"
 WELL_KNOWN_BUNDLES = "stdlib@1.0.0"
 # Search backend: "d1" (built-in FTS5 trigram) or "algolia" (§12).
 SEARCH_PROVIDER = "d1"
-# DEV ONLY: allow unsigned publishes (no detached .sig required). Never
-# set in production — override to "0" there.
+# DEV ONLY: allow unsigned publishes + an untrusted key-id (skips Ed25519
+# verification). Never set in production — override to "0" there.
 ALLOW_UNSIGNED = "1"
+# Bundle compression level (§14). 19 = strong cross-member dedup, still
+# client-decodable (windowLog ≤ 27). Lower it if Worker CPU is tight.
+BUNDLE_ZSTD_LEVEL = "19"
+# Require a verified namespace proof on publish (§15). Off for local dev.
+REQUIRE_NAMESPACE = "0"
+
+# Transparency-log signing key (§15) is a SECRET — do NOT put it here. Locally
+# set LOG_SIGNING_KEY_ID / LOG_SIGNING_KEY_PEM in .dev.vars (gitignored); in
+# production use `wrangler secret put LOG_SIGNING_KEY_PEM`.

@@ -1,5 +1,5 @@
 // D1 query helpers. Routes call these — no raw SQL in route handlers (§8).
-import type { Env, PackageRow, VersionRow, BlobRow } from '../types';
+import type { Env, PackageRow, VersionRow, BlobRow, TrustKeyRow } from '../types';
 import { compareVersions } from './semver';
 import { toCanonical } from './sha';
 
@@ -46,6 +46,28 @@ export async function getTransparency(env: Env, sha: string) {
     }>();
 }
 
+export async function getTrustKey(env: Env, keyId: string): Promise<TrustKeyRow | null> {
+  return env.DB.prepare('SELECT * FROM trust_keys WHERE key_id = ?')
+    .bind(keyId)
+    .first<TrustKeyRow>();
+}
+
+export async function addTrustKey(
+  env: Env,
+  k: { keyId: string; publicKey: string; principal: string | null; fingerprint: string; now: string },
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO trust_keys (key_id, public_key, principal, fingerprint, created_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(key_id) DO UPDATE SET
+       public_key = excluded.public_key,
+       principal = excluded.principal,
+       fingerprint = excluded.fingerprint`,
+  )
+    .bind(k.keyId, k.publicKey, k.principal, k.fingerprint, k.now)
+    .run();
+}
+
 export interface PublishInput {
   name: string;
   version: string;
@@ -58,7 +80,10 @@ export interface PublishInput {
   description: string;
   namespace: string | null;
   keyId: string | null;
-  signature: string | null;
+  signature: string | null; // publisher's detached sig, base64
+  attestation: string | null; // in-toto/SLSA provenance JSON
+  logSignatureB64: string; // registry log-entry signature
+  logKeyId: string; // registry log key id
   now: string; // ISO 8601
 }
 
@@ -88,10 +113,13 @@ export async function recordPublish(env: Env, p: PublishInput): Promise<void> {
     env.DB
       .prepare(
         `INSERT INTO versions
-           (name, version, sha256, manifest_json, readme, retracted, retracted_reason, key_id, published_at)
-         VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?)`,
+           (name, version, sha256, manifest_json, readme, retracted, retracted_reason, key_id, published_at, signature, attestation)
+         VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?)`,
       )
-      .bind(p.name, p.version, p.sha, p.manifestJson, p.readme, p.keyId, p.now),
+      .bind(
+        p.name, p.version, p.sha, p.manifestJson, p.readme, p.keyId, p.now,
+        p.signature, p.attestation,
+      ),
     env.DB
       .prepare(
         `INSERT INTO blobs (sha256, size, r2_key, created_at)
@@ -104,13 +132,14 @@ export async function recordPublish(env: Env, p: PublishInput): Promise<void> {
         `INSERT INTO transparency_log (sha256, signed_at, log_entry_signature, log_entry_key_id)
          VALUES (?, ?, ?, ?)`,
       )
-      .bind(p.sha, p.now, p.signature ?? '', p.keyId ?? ''),
+      .bind(p.sha, p.now, p.logSignatureB64, p.logKeyId),
   ]);
 }
 
 export interface PackageListItem {
   name: string;
   description: string;
+  keywords: string;
   latest_version: string | null;
   versions_count: number;
 }
@@ -125,6 +154,7 @@ export async function listPackages(
   const rows = await env.DB.prepare(
     `SELECT p.name AS name,
             p.description AS description,
+            p.keywords AS keywords,
             p.latest_version AS latest_version,
             (SELECT count(*) FROM versions v WHERE v.name = p.name) AS versions_count
        FROM packages p

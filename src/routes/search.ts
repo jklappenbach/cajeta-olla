@@ -2,10 +2,24 @@
 // provider-stable shape: { hits:[{name,version,description,score}], page, nbHits }.
 import { Hono } from 'hono';
 import type { Env } from '../types';
-import { search as runSearch } from '../lib/search-index';
+import { search as runSearch, reindexAll } from '../lib/search-index';
+import { authenticatePublish } from '../lib/auth';
 import { jsonError } from '../lib/http';
 
 export const search = new Hono<{ Bindings: Env }>();
+
+// Rebuild the Algolia index from D1 (§12). Admin/publish auth. No-op (indexed:
+// -1) when Algolia isn't configured — D1 FTS needs no rebuild.
+search.post('/v2/reindex', async (c) => {
+  const auth = await authenticatePublish(c.env, c.req.raw);
+  if (!auth.ok) return jsonError(c, auth.status ?? 401, auth.message ?? 'unauthorized');
+  try {
+    const indexed = await reindexAll(c.env);
+    return c.json({ indexed, provider: indexed < 0 ? 'd1' : 'algolia' });
+  } catch (e) {
+    return jsonError(c, 502, 'reindex failed', { hint: String(e) });
+  }
+});
 
 search.get('/v2/search', async (c) => {
   const q = c.req.query('q') ?? '';

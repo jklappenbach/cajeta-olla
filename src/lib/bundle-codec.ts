@@ -98,11 +98,23 @@ function buildTar(entries: TarEntry[]): Uint8Array {
   return out;
 }
 
-/** Build a tar from entries and zstd-compress it (level 3, matching the C++). */
-export async function writeTarZstd(entries: TarEntry[]): Promise<Uint8Array> {
+// Default bundle compression level. A solid single-frame stream lets zstd
+// match repeated sections *across* members (the core cross-library dedup
+// win, §14). Level 19's window (~8 MiB) is far larger than level 3's, and any
+// frame with windowLog ≤ 27 decodes with the client's simple ZSTD_decompress
+// (TarZstd.cpp), so it stays interoperable. (True `--long`/LDM and a trained
+// dictionary need advanced cctx params the wasm build doesn't expose, plus a
+// client that opts into a larger window / dict — tracked as supercompress.)
+const DEFAULT_LEVEL = 19;
+
+/** Build a tar from entries and zstd-compress it as one solid frame. */
+export async function writeTarZstd(
+  entries: TarEntry[],
+  level: number = DEFAULT_LEVEL,
+): Promise<Uint8Array> {
   await ensureZstd();
   const tar = buildTar(entries);
-  return compress(tar, 3) as Uint8Array;
+  return compress(tar, level) as Uint8Array;
 }
 
 /** Decompress + parse a tar.zst (used in tests / round-trip checks). */

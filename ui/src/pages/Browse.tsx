@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api, type PackageListItem } from '../lib/api';
+import { PackageCard } from '../components/PackageCard';
+import { Pagination } from '../components/Pagination';
+
+const HITS = 24;
 
 export function Browse() {
   const [pkgs, setPkgs] = useState<PackageListItem[] | null>(null);
   const [nb, setNb] = useState(0);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
+    setPkgs(null);
     api
-      .packages()
+      .packages(page, HITS)
       .then((r) => {
         if (!live) return;
         setPkgs(r.packages);
@@ -20,7 +25,7 @@ export function Browse() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [page]);
 
   return (
     <div className="container section">
@@ -33,7 +38,7 @@ export function Browse() {
         </div>
       )}
       {!pkgs && !error && <div className="spinner">Loading…</div>}
-      {pkgs && pkgs.length === 0 && (
+      {pkgs && pkgs.length === 0 && page === 0 && (
         <div className="empty">
           <span className="clay">🫙</span>
           <h3>No packages published yet.</h3>
@@ -45,19 +50,24 @@ export function Browse() {
       )}
       {pkgs && pkgs.length > 0 && (
         <>
-          <p className="result-meta">{nb} packages</p>
+          <p className="result-meta">
+            {nb} packages · showing {page * HITS + 1}–{page * HITS + pkgs.length}
+          </p>
           {pkgs.map((p) => (
-            <Link key={p.name} to={`/p/${encodeURIComponent(p.name)}`} className="card">
-              <div className="pkg-name">
-                {p.name}
-                {p.latest_version && <span className="badge">{p.latest_version}</span>}
+            <PackageCard
+              key={p.name}
+              name={p.name}
+              version={p.latest_version}
+              description={p.description}
+              keywords={p.keywords}
+              badges={
                 <span className="badge">
                   {p.versions_count} {p.versions_count === 1 ? 'version' : 'versions'}
                 </span>
-              </div>
-              <div className="pkg-desc">{p.description || 'No description.'}</div>
-            </Link>
+              }
+            />
           ))}
+          <Pagination page={page} nb={nb} hits={HITS} onPage={setPage} />
         </>
       )}
     </div>

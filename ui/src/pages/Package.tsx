@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CopyButton } from '../components/CopyButton';
+import { KeywordChips } from '../components/KeywordChips';
 import { api, type PackageDetail, type ResolveMeta } from '../lib/api';
 
 export function Package() {
@@ -45,7 +46,6 @@ export function Package() {
   const latest = pkg.latest_version ?? pkg.versions[0];
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
   const installCmd = `cajeta add ${pkg.name}`;
-  const keywords = pkg.keywords.split(/[\s,]+/).filter(Boolean);
 
   return (
     <div className="container section">
@@ -102,15 +102,7 @@ export function Package() {
         )}
       </dl>
 
-      {keywords.length > 0 && (
-        <p>
-          {keywords.map((k) => (
-            <span key={k} className="badge" style={{ marginLeft: 0, marginRight: 8 }}>
-              {k}
-            </span>
-          ))}
-        </p>
-      )}
+      <KeywordChips keywords={pkg.keywords} max={20} />
 
       {meta && meta.deps.length > 0 && (
         <>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { CaramelCube } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -26,6 +27,7 @@ export function Layout({ children }: { children: ReactNode }) {
           >
             GitHub
           </a>
+          <ThemeToggle />
         </div>
       </nav>
       <main>{children}</main>

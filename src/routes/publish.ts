@@ -7,10 +7,14 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { authenticatePublish } from '../lib/auth';
-import { getVersion, recordPublish, setRetracted } from '../lib/catalog';
+import { getVersion, recordPublish, setRetracted, getTrustKey } from '../lib/catalog';
 import { putBlob, blobKey } from '../lib/storage';
-import { sha256Canonical, toCanonical } from '../lib/sha';
+import { sha256Canonical, toCanonical, toHex } from '../lib/sha';
 import { parseManifestMeta } from '../lib/manifest';
+import { verifyDetached, signLogEntry, base64 } from '../lib/signature';
+import { verifyAttestation } from '../lib/attestation';
+import { domainForPackage, isNamespaceVerified } from '../lib/namespace';
+import { indexPackage, removeFromIndex } from '../lib/search-index';
 import { jsonError } from '../lib/http';
 
 export const publish = new Hono<{ Bindings: Env }>();
@@ -25,13 +29,6 @@ async function fieldToString(v: File | string | null): Promise<string | null> {
   if ('text' in v) return v.text();
   return null;
 }
-function base64(bytes: ArrayBuffer): string {
-  let s = '';
-  const arr = new Uint8Array(bytes);
-  for (let i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
-  return btoa(s);
-}
-
 publish.post('/v2/publish', async (c) => {
   // 1. AuthN/Z.
   const auth = await authenticatePublish(c.env, c.req.raw);
@@ -62,10 +59,35 @@ publish.post('/v2/publish', async (c) => {
 
   const keyId = await fieldToString(form.get('key-id'));
   const sigBuf = await fileToBuffer(form.get('signature'));
+  const archiveBytes = new Uint8Array(archive);
+  const dev = c.env.ALLOW_UNSIGNED === '1';
 
-  // 4. Signature requirement (verification against a trust store is §15;
-  // here we enforce presence unless ALLOW_UNSIGNED).
-  if (!sigBuf && c.env.ALLOW_UNSIGNED !== '1') {
+  // 2. Namespace ownership (§15) — gated by REQUIRE_NAMESPACE.
+  if (c.env.REQUIRE_NAMESPACE === '1') {
+    const domain = domainForPackage(name);
+    if (!domain || !(await isNamespaceVerified(c.env, domain, auth.principal ?? ''))) {
+      return jsonError(c, 403, `namespace '${domain ?? name}' not verified for publisher`);
+    }
+  }
+
+  // 4. Signature — verify the detached Ed25519 sig over the raw archive bytes
+  // against the trusted key named by `key-id`.
+  let storedSigB64: string | null = null;
+  if (sigBuf) {
+    const sig = new Uint8Array(sigBuf);
+    if (!keyId) {
+      if (!dev) return jsonError(c, 400, 'signature present but no key-id');
+    } else {
+      const trust = await getTrustKey(c.env, keyId);
+      if (trust) {
+        const ok = await verifyDetached(trust.public_key, sig, archiveBytes);
+        if (!ok) return jsonError(c, 400, `signature verification failed for key-id '${keyId}'`);
+      } else if (!dev) {
+        return jsonError(c, 403, `untrusted key-id '${keyId}' (not in the registry trust store)`);
+      }
+    }
+    storedSigB64 = base64(sig);
+  } else if (!dev) {
     return jsonError(c, 400, 'unsigned publish rejected (no signature)');
   }
 
@@ -75,6 +97,14 @@ publish.post('/v2/publish', async (c) => {
     return jsonError(c, 400, 'sha256 mismatch: archive does not match metadata.sha256', {
       hint: `computed ${computed}`,
     });
+  }
+
+  // 4b. Attestation (§15) — when present, verify the in-toto/SLSA provenance
+  // structurally and bind its subject digest to this archive.
+  const attestationJson = await fieldToString(form.get('attestation'));
+  if (attestationJson) {
+    const r = verifyAttestation(attestationJson, toHex(computed));
+    if (!r.ok) return jsonError(c, 400, `attestation verification failed: ${r.error}`);
   }
 
   // 5. Immutability.
@@ -90,6 +120,15 @@ publish.post('/v2/publish', async (c) => {
   const readme = (await fieldToString(form.get('readme'))) ?? '';
   const meta = parseManifestMeta(manifestJson);
 
+  // Transparency-log entry signed by the registry's own log key (§15).
+  const now = new Date().toISOString();
+  const logSig = await signLogEntry(
+    c.env.LOG_SIGNING_KEY_PEM,
+    c.env.LOG_SIGNING_KEY_ID,
+    computed,
+    now,
+  );
+
   await recordPublish(c.env, {
     name,
     version,
@@ -102,8 +141,19 @@ publish.post('/v2/publish', async (c) => {
     description: meta.description,
     namespace: meta.namespace,
     keyId: keyId ?? null,
-    signature: sigBuf ? base64(sigBuf) : null,
-    now: new Date().toISOString(),
+    signature: storedSigB64,
+    attestation: attestationJson,
+    logSignatureB64: logSig.signatureB64,
+    logKeyId: logSig.keyId,
+    now,
+  });
+
+  // 7. Index-on-publish (Algolia; D1 FTS is maintained by triggers).
+  await indexPackage(c.env, {
+    name,
+    version,
+    description: meta.description,
+    keywords: meta.keywords,
   });
 
   return c.json(
@@ -126,5 +176,7 @@ publish.post('/v2/retract', async (c) => {
   }
   const ok = await setRetracted(c.env, body.name, body.version, body.reason ?? '');
   if (!ok) return jsonError(c, 404, `${body.name}@${body.version} not found`);
+  // Drop yanked packages from the Algolia index so they leave search results.
+  await removeFromIndex(c.env, body.name);
   return c.json({ retracted: { name: body.name, version: body.version } });
 });

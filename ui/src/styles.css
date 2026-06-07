@@ -375,3 +375,167 @@ code,
   padding: 40px;
   color: var(--muted);
 }
+
+/* ── Dark mode — "the kitchen after dark" (comal / worn iron) ── */
+[data-theme='dark'] {
+  --bg: #1b1613;
+  --surface: #241e1a; /* comal-900 */
+  --border: #3a2f27;
+  --text: #f1e7d8;
+  --muted: #b09a85;
+  --primary: var(--caramel-300);
+  --accent: var(--gold-400);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+[data-theme='dark'] h1,
+[data-theme='dark'] h2,
+[data-theme='dark'] h3 {
+  color: var(--glaze);
+}
+[data-theme='dark'] a {
+  color: var(--caramel-300);
+}
+[data-theme='dark'] .eyebrow {
+  color: var(--terracotta-400);
+}
+[data-theme='dark'] .nav {
+  background: rgba(27, 22, 19, 0.82);
+}
+[data-theme='dark'] .brand {
+  color: var(--glaze);
+}
+[data-theme='dark'] .nav a.navlink {
+  color: #d8c4ab;
+}
+[data-theme='dark'] .badge {
+  background: #332a22;
+  color: var(--caramel-300);
+}
+[data-theme='dark'] .searchbar input::placeholder {
+  color: #8a7460;
+}
+[data-theme='dark'] .copy.on-cream {
+  background: #2e251e;
+  color: var(--caramel-300);
+  border-color: #3a2f27;
+}
+
+/* ── Theme toggle ── */
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--cocoa-700);
+  transition: border-color 0.15s, transform 0.05s;
+}
+.theme-toggle:hover {
+  border-color: var(--caramel-300);
+}
+.theme-toggle:active {
+  transform: translateY(1px);
+}
+
+/* ── Keyword chips ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.chip {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--cream-200);
+  color: var(--cocoa-700);
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.chip:hover {
+  background: var(--caramel-300);
+  color: #3a2410;
+}
+[data-theme='dark'] .chip {
+  background: #332a22;
+  color: var(--caramel-300);
+}
+[data-theme='dark'] .chip:hover {
+  background: var(--caramel-300);
+  color: #241e1a;
+}
+
+/* ── Pagination ── */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 28px;
+}
+.pager .page-info {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.btn.ghost.small:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Package card (div form, so chips aren't nested links) ── */
+.pkg-name-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.pkg-name-link:hover {
+  text-decoration: none;
+}
+
+/* ── Landing extras ── */
+.featured {
+  margin: 8px 0 10px;
+}
+.how {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 36px 0 10px;
+}
+.how .step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.how .step .n {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--terracotta-600);
+  font-size: 0.85rem;
+}
+.how .step h3 {
+  margin: 6px 0 6px;
+  font-size: 1.15rem;
+}
+.how .step code {
+  font-size: 0.82rem;
+  color: var(--cocoa-700);
+}
+[data-theme='dark'] .how .step code {
+  color: var(--caramel-300);
+}
+@media (max-width: 720px) {
+  .how {
+    grid-template-columns: 1fr;
+  }
+}

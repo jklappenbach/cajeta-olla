@@ -113,7 +113,8 @@ bundle.post('/v2/bundle', async (c) => {
   const indexJson = JSON.stringify({ entries: indexEntries, omitted });
   entries.push({ name: 'bundle.json', data: new TextEncoder().encode(indexJson) });
 
-  const tarZst = await writeTarZstd(entries);
+  const level = parseInt(c.env.BUNDLE_ZSTD_LEVEL ?? '19', 10) || 19;
+  const tarZst = await writeTarZstd(entries, level);
   return new Response(tarZst, {
     status: 200,
     headers: {

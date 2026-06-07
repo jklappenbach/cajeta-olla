@@ -23,6 +23,7 @@ export interface PackageDetail {
 export interface PackageListItem {
   name: string;
   description: string;
+  keywords: string;
   latest_version: string | null;
   versions_count: number;
 }
