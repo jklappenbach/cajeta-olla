@@ -59,33 +59,26 @@ async function publish(spec) {
   }
 }
 
+// NOTE: cajeta.lang.stdlib is intentionally absent — the stdlib is embedded in
+// executable .cja/binaries, never a separately-distributed registry package.
 const packages = [
   {
-    name: 'cajeta.lang.stdlib',
-    version: '1.0.0',
-    description: 'The Cajeta standard library — core types, collections, streams.',
-    keywords: ['stdlib', 'core', 'collections', 'streams'],
-  },
-  {
-    name: 'cajeta.io.net.http',
+    name: 'dev.cajeta.http',
     version: '1.2.0',
     description: 'HTTP/1.1 + TLS client and server for Cajeta.',
     keywords: ['http', 'net', 'tls', 'client', 'server'],
-    deps: { 'cajeta.lang.stdlib': '>=1.0.0' },
   },
   {
-    name: 'cajeta.io.net.http',
+    name: 'dev.cajeta.http',
     version: '1.2.3',
     description: 'HTTP/1.1 + TLS client and server for Cajeta.',
     keywords: ['http', 'net', 'tls', 'client', 'server'],
-    deps: { 'cajeta.lang.stdlib': '>=1.0.0' },
   },
   {
-    name: 'cajeta.codec.json',
+    name: 'dev.cajeta.codec',
     version: '0.4.0',
     description: 'Streaming JSON encoder/decoder for Cajeta.',
     keywords: ['json', 'codec', 'serialization'],
-    deps: { 'cajeta.lang.stdlib': '>=1.0.0' },
   },
   // Non-stdlib packages (the resolver drops `cajeta.*` deps as toolchain-
   // embedded, so the build-tool integration demo uses these). widgets → core.

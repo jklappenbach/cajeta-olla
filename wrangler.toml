@@ -20,7 +20,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "olla-catalog"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "d00eb192-66bb-415a-bda6-3ad4e7b7fb6a"
 migrations_dir = "migrations"
 
 # Artifact bytes (content-addressed at blob/<sha256>).
@@ -32,17 +32,23 @@ bucket_name = "olla-artifacts"
 # Capability document (§9). TTL the client caches the probe for.
 CAPABILITY_TTL_SECONDS = "3600"
 # Comma-separated <name>@<version> bundles advertised under
-# capabilities.well-known-bundles.
-WELL_KNOWN_BUNDLES = "stdlib@1.0.0"
+# capabilities.well-known-bundles. NOTE: the stdlib is NOT a bundle — it ships
+# embedded in executable .cja/binaries and is never distributed or resolved as a
+# separate package. Leave empty until a genuine well-known bundle exists.
+WELL_KNOWN_BUNDLES = ""
 # Search backend: "d1" (built-in FTS5 trigram) or "algolia" (§12).
 SEARCH_PROVIDER = "d1"
-# DEV ONLY: allow unsigned publishes + an untrusted key-id (skips Ed25519
-# verification). Never set in production — override to "0" there.
-ALLOW_UNSIGNED = "1"
+# Allow unsigned publishes + an untrusted key-id (skips Ed25519 verification).
+# Production-safe default is "0" (signing required). Local dev overrides this to
+# "1" via .dev.vars — never enable unsigned on a deployed/public registry.
+ALLOW_UNSIGNED = "0"
 # Bundle compression level (§14). 19 = strong cross-member dedup, still
 # client-decodable (windowLog ≤ 27). Lower it if Worker CPU is tight.
 BUNDLE_ZSTD_LEVEL = "19"
-# Require a verified namespace proof on publish (§15). Off for local dev.
+# Require a verified namespace proof on publish (§15). Intentionally "0" at
+# launch: small teams publish without owning a domain. Namespace verification
+# is meant to become a *per-namespace* requirement as a namespace grows
+# (graduated trust), not a global flip to "1". Off for local dev too.
 REQUIRE_NAMESPACE = "0"
 
 # Transparency-log signing key (§15) is a SECRET — do NOT put it here. Locally

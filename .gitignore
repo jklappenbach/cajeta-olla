@@ -8,6 +8,11 @@ dist/
 # UI build output / deps
 ui/node_modules/
 ui/dist/
+ui/.vite/
 
 # local scratch
 /tmp-*
+
+# signing keys / secrets — never commit (set prod keys via `wrangler secret put`)
+*.key
+*.pem
