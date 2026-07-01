@@ -62,7 +62,23 @@ app.route('/', packages);
 app.route('/', keys);
 app.route('/', v1);
 
-app.notFound((c) => c.json({ error: 'not found' }, 404));
+// SPA fallback: browser navigations to non-API routes get the React app
+// (index.html via the ASSETS binding); API clients and unknown API paths still
+// get JSON 404 per protocol §7. Static files (/assets/*) are served by the
+// asset layer before the Worker, so they never reach here.
+app.notFound((c) => {
+  const p = c.req.path;
+  const isApiPath =
+    p.startsWith('/v2/') ||
+    p.startsWith('/.well-known/') ||
+    p.endsWith('/versions.json') ||
+    /\.(cja|sig|keyid|attestation)$/.test(p);
+  const wantsHtml = (c.req.header('Accept') ?? '').includes('text/html');
+  if (!isApiPath && c.req.method === 'GET' && wantsHtml) {
+    return c.env.ASSETS.fetch(c.req.raw);
+  }
+  return c.json({ error: 'not found' }, 404);
+});
 app.onError((err, c) => {
   console.error('olla error', err);
   return c.json({ error: 'internal error', hint: String(err) }, 500);

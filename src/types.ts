@@ -5,6 +5,8 @@ export interface Env {
   DB: D1Database;
   // Artifact bytes, content-addressed at blob/<hex>.
   BLOBS: R2Bucket;
+  // Static assets binding — the built React UI (ui/dist), served same-origin.
+  ASSETS: Fetcher;
 
   // Vars (wrangler.toml [vars] / secrets).
   CAPABILITY_TTL_SECONDS?: string;

@@ -14,6 +14,22 @@ main = "src/index.ts"
 compatibility_date = "2025-07-18"
 workers_dev = true
 
+# Custom domain. wrangler provisions the DNS record + TLS cert on deploy, since
+# the cajeta.dev zone is on this Cloudflare account. workers_dev stays on, so the
+# *.workers.dev URL keeps working too.
+routes = [
+  { pattern = "olla.cajeta.dev", custom_domain = true }
+]
+
+# Serve the built React UI (ui/dist) from this same Worker, so olla.cajeta.dev/
+# is the browsable site while /v2, /.well-known, etc. remain the API. Static
+# files are served before the Worker runs; unmatched routes fall to the Worker,
+# whose notFound serves index.html for browser navigations (SPA) or JSON 404.
+[assets]
+directory = "./ui/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
 # Catalog (system of record for metadata). The placeholder database_id is
 # fine for `--local`; replace with the real id from `wrangler d1 create
 # olla-catalog` before any `--remote` apply / deploy.
