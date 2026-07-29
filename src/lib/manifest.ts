@@ -1,6 +1,10 @@
 // Defensive extraction of catalog/search metadata from a published
-// cajeta.json. We tolerate both top-level and `settings.*` placement so the
-// registry stays robust across manifest-schema revisions (manifest-v1.json).
+// cajeta.json. The CANONICAL placement is `details.*` — that is where every
+// real cajeta manifest carries name/version/description (see any repo's
+// cajeta.json) — with top-level and `settings.*` tolerated as fallbacks so
+// the registry stays robust across manifest-schema revisions. Omitting
+// `details` here was why every published package listed an empty
+// description until 2026-07-29.
 
 export interface ManifestMeta {
   description: string;
@@ -22,17 +26,19 @@ export function parseManifestMeta(manifestJson: string): ManifestMeta {
     m = {};
   }
   const settings = m.settings ?? {};
+  const details = m.details ?? {};
 
-  const description = String(pick(m.description, settings.description) ?? '');
+  const description = String(
+    pick(details.description, m.description, settings.description) ?? '',
+  );
 
-  const rawKeywords = pick<any>(m.keywords, settings.keywords);
+  const rawKeywords = pick<any>(details.keywords, m.keywords, settings.keywords);
   let keywords = '';
   if (Array.isArray(rawKeywords)) keywords = rawKeywords.join(' ');
   else if (typeof rawKeywords === 'string') keywords = rawKeywords;
 
-  const namespace = (pick<string>(m.namespace, settings.namespace) ?? null) as
-    | string
-    | null;
+  const namespace = (pick<string>(details.namespace, m.namespace, settings.namespace) ??
+    null) as string | null;
 
   // dependencies: { "<name>": "<constraint>" | { version, from } }
   const depObj = pick<Record<string, any>>(settings.dependencies, m.dependencies) ?? {};
