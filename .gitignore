@@ -16,3 +16,8 @@ ui/.vite/
 # signing keys / secrets — never commit (set prod keys via `wrangler secret put`)
 *.key
 *.pem
+
+# Compiler cache — bitcode and prebuilt archives, regenerated on every build.
+# Never source. Committed cache also risks feeding a stale artifact to a
+# different toolchain than the one that produced it.
+**/.cajeta/cache/
