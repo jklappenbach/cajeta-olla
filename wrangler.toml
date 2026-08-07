@@ -13,6 +13,9 @@ name = "cajeta-olla"
 main = "src/index.ts"
 compatibility_date = "2025-07-18"
 workers_dev = true
+# Pin the account that owns the cajeta.dev zone, so deploys never prompt
+# when multiple Cloudflare accounts are configured locally.
+account_id = "93232a5aaa10deafb429cb2e6b25bb49"
 
 # Custom domain. wrangler provisions the DNS record + TLS cert on deploy, since
 # the cajeta.dev zone is on this Cloudflare account. workers_dev stays on, so the
