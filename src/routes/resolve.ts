@@ -45,7 +45,7 @@ resolve.get('/v2/resolve', async (c) => {
     sha256: row.sha256,
     size: blob?.size ?? 0,
     deps: meta.dependencies,
-    capabilities: [],
+    capabilities: meta.capabilities,
     'published-at': row.published_at,
     retracted: row.retracted === 1,
   };

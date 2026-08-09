@@ -11,6 +11,13 @@ export interface ManifestMeta {
   keywords: string; // space-joined for FTS
   namespace: string | null;
   dependencies: { name: string; version: string }[];
+  // Declared capabilities (`settings.capabilities`). An EMPTY list is a
+  // positive claim that the package touches nothing, so it must be the
+  // package's own claim and never a placeholder — resolve used to hardcode
+  // `[]`, which told consumers that a filesystem-reading library needed no
+  // filesystem. That is the unsafe direction: a capability check passing
+  // when it should fail.
+  capabilities: string[];
 }
 
 function pick<T>(...vals: (T | undefined | null)[]): T | undefined {
@@ -51,5 +58,12 @@ export function parseManifestMeta(manifestJson: string): ManifestMeta {
     dependencies.push({ name, version });
   }
 
-  return { description, keywords, namespace, dependencies };
+  // Canonical placement is `settings.capabilities`, with a top-level
+  // fallback for the same schema-drift reason the fields above tolerate one.
+  const rawCaps = pick<any>(settings.capabilities, m.capabilities);
+  const capabilities: string[] = Array.isArray(rawCaps)
+    ? rawCaps.filter((x) => typeof x === 'string')
+    : [];
+
+  return { description, keywords, namespace, dependencies, capabilities };
 }

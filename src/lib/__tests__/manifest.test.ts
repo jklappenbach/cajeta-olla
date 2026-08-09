@@ -46,4 +46,37 @@ describe('parseManifestMeta', () => {
     expect(parseManifestMeta('not json').description).toBe('');
     expect(parseManifestMeta('{}').description).toBe('');
   });
+
+  // Capabilities were reported as a hardcoded `[]` by /v2/resolve, so every
+  // package claimed to touch nothing — dev.cajeta.docs declares
+  // ["filesystem"] and dev.cajeta.gossip ["network"], and both resolved as
+  // empty. That is the unsafe direction: a capability check that PASSES when
+  // it should fail.
+  it('extracts declared capabilities from settings', () => {
+    const meta = parseManifestMeta(
+      JSON.stringify({ settings: { capabilities: ['filesystem', 'network'] } }),
+    );
+    expect(meta.capabilities).toEqual(['filesystem', 'network']);
+  });
+
+  it('distinguishes a declared-empty list from a missing one, both as []', () => {
+    // cajeta-cloud's §14.11 guarantee turns on `capabilities: []` MEANING it.
+    expect(parseManifestMeta(JSON.stringify({ settings: { capabilities: [] } })).capabilities)
+      .toEqual([]);
+    expect(parseManifestMeta('{}').capabilities).toEqual([]);
+  });
+
+  it('tolerates the top-level placement and ignores non-string entries', () => {
+    expect(parseManifestMeta(JSON.stringify({ capabilities: ['network'] })).capabilities)
+      .toEqual(['network']);
+    expect(
+      parseManifestMeta(JSON.stringify({ settings: { capabilities: ['ok', 7, null] } }))
+        .capabilities,
+    ).toEqual(['ok']);
+  });
+
+  it('a non-array capabilities value degrades to [], not a throw', () => {
+    expect(parseManifestMeta(JSON.stringify({ settings: { capabilities: 'network' } })).capabilities)
+      .toEqual([]);
+  });
 });
