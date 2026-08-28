@@ -21,3 +21,9 @@ ui/.vite/
 # Never source. Committed cache also risks feeding a stale artifact to a
 # different toolchain than the one that produced it.
 **/.cajeta/cache/
+
+# Build output. Prophylactic: this is not a cajeta build project today, but
+# the ecosystem convention is that everything generated lives under build/
+# and nothing generated is ever committed.
+build/
+**/.cajeta/cache/
