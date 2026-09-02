@@ -29,10 +29,38 @@ wins on any disagreement — shipped clients enforce it.
 - **`cajeta trust verify-document`** — checks a document with the client's
   own parsers before it is served.
 
-**Storage choice: D1, not KV.** KV is eventually consistent to ~60s
-globally, and revocation's entire value is timeliness. Documents are under
-2KB and read on every install, so freshness is bought with HTTP cache
-headers per document type rather than with an edge store.
+**Storage: D1, not KV** — decided 2026-09-02 after the first argument for
+it turned out to be wrong, which is worth recording so nobody re-derives it.
+
+The rejected argument was consistency: KV is eventually consistent to ~60s
+and revocation is timeliness-critical. That does not hold up. The window
+only exists around a WRITE, and this workload is read-heavy with rare
+writes — annual for organization documents and the delegation. Even for
+revocation, 60s of staleness against the hours an offline root ceremony
+takes is still the win the delegated statement exists to deliver.
+
+Cost does not decide it either. Both are negligible: a document GET is a
+single-row primary-key SELECT, so at a million installs a day this stays
+inside D1's free tier, and KV's 500x-higher per-read price is still small
+money.
+
+What actually decides it:
+
+* **Audit atomicity.** Spec §3.10 requires every mutation recorded. On D1
+  the document write and the audit row are one transaction. On KV they are
+  two stores that can diverge — document stored, audit write failed, an
+  unrecorded mutation — and that is exactly the clause that exists for
+  post-compromise forensics.
+* **One store.** D1 and R2 are already bound; KV is not. A second store is
+  provisioning, config, and another thing in the deploy story.
+* **Staleness stays ours to choose.** With an HTTP cache in front of D1 the
+  TTL is a number we set per document kind, including zero. KV's
+  propagation is a floor underneath whatever we choose.
+
+**The cache is the performance design, not a detail.** An HTTP cache sits
+in front regardless, so the origin is hit roughly once per colo per TTL
+rather than once per install — which is also why KV's edge-locality
+advantage is largely captured already. Unit 3 specifies the TTLs.
 
 ## Deliverables
 
@@ -141,16 +169,35 @@ document and a credential that is not a publish token.
 - [ ] 3.1.6 An expired stored document is NOT served — 404, as though
       absent, and a warning is logged. Serving it would push the refusal
       onto every client at once.
+- [ ] 3.1.7 An organization document is served with a cache lifetime, and
+      that lifetime never outlives the document's own `not-after`. A cached
+      document outliving its expiry is a stale document a client cannot
+      refuse, because it never sees it.
+- [ ] 3.1.8 THE cache test: a revocation statement is served
+      NON-cacheable. Every other document here caches for hours; this one
+      must not, because a cached revocation is a revocation an attacker
+      gets for free. The pair with 3.1.7 is the check — one document
+      cached, one not.
+- [ ] 3.1.9 A 503 is never cached. Caching a failure turns a transient
+      outage into a persistent one.
 
 ### 3.2 Coding
 - [ ] 3.2.1 `src/routes/trust.ts` — the three GET handlers.
-- [ ] 3.2.2 Cache headers per kind: organization documents may be cached to
-      their own expiry; revocations short or not at all (spec §2.11).
-- [ ] 3.2.3 Capabilities gains `revocation`, defaulting false.
+- [ ] 3.2.2 Cache headers per kind. Organization documents and the
+      delegation: `public, max-age=<hours>`, clamped so it never exceeds
+      the document's remaining `not-after`. Revocations: `no-store`.
+      Errors: `no-store`.
+- [ ] 3.2.3 One helper decides the header from the document kind, so a new
+      endpoint cannot pick its own policy by omission.
+- [ ] 3.2.4 Capabilities gains `revocation`, defaulting false.
 
 ### 3.3 Acceptance
 - [ ] 3.3.1 A cajeta client with the production root installed fetches and
       verifies the real delegation from a locally running olla.
+- [ ] 3.3.2 Measure the origin read rate under a repeated-install loop and
+      confirm the cache is doing the work — the storage choice assumes the
+      origin is hit per colo per TTL, not per install, and an assumption
+      that load-bearing deserves one measurement.
 
 ## Unit 4 — Signed release metadata
 
