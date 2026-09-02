@@ -16,9 +16,10 @@
     "test:conformance": "vitest run test/conformance"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@cloudflare/workers-types": "^4.20260601.0",
     "typescript": "^5.5.4",
-    "vitest": "^2.0.5",
+    "vitest": "^4.1.11",
     "wrangler": "^4.105.0"
   },
   "dependencies": {

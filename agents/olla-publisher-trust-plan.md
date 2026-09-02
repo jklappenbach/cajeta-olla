@@ -86,35 +86,35 @@ Schema first. Nothing else can land before there is somewhere to put a
 document and a credential that is not a publish token.
 
 ### 1.1 TDD
-- [ ] 1.1.1 An admin token authenticates against `admin_tokens`; an unknown
+- [x] 1.1.1 An admin token authenticates against `admin_tokens`; an unknown
       token is refused 403 and a missing one 401.
-- [ ] 1.1.2 THE test: a valid PUBLISH token is REFUSED by admin
+- [x] 1.1.2 THE test: a valid PUBLISH token is REFUSED by admin
       authentication. Spec §3.6, and the defect §1.4.1 describes. It must
       fail before 1.2.2 lands.
-- [ ] 1.1.3 And the converse — an admin token is refused by
+- [x] 1.1.3 And the converse — an admin token is refused by
       `authenticatePublish`. Separation has to hold in both directions or it
       is one credential with two names.
-- [ ] 1.1.4 An expired admin token is refused.
-- [ ] 1.1.5 `ALLOW_UNSIGNED=1` does NOT relax admin authentication. The dev
+- [x] 1.1.4 An expired admin token is refused.
+- [x] 1.1.5 `ALLOW_UNSIGNED=1` does NOT relax admin authentication. The dev
       relaxation exists so fixtures can publish; letting it mint owner
       authority would put the whole design behind an env var.
-- [ ] 1.1.6 A recorded mutation captures actor, target, before, after and
+- [x] 1.1.6 A recorded mutation captures actor, target, before, after and
       time, and the log is append-only — an UPDATE or DELETE against it
       fails.
 
 ### 1.2 Coding
-- [ ] 1.2.1 Migration `0005_publisher_trust.sql`: `signed_documents`
+- [x] 1.2.1 Migration `0005_publisher_trust.sql`: `signed_documents`
       (kind, subject, envelope, issued_at, not_after, key_id, stored_at),
       `admin_tokens` (mirrors `publish_tokens`), `audit_log`.
-- [ ] 1.2.2 `authenticateAdmin()` in `src/lib/auth.ts`, reading only
+- [x] 1.2.2 `authenticateAdmin()` in `src/lib/auth.ts`, reading only
       `admin_tokens`.
-- [ ] 1.2.3 `recordMutation()` — one writer, so no caller invents its own
+- [x] 1.2.3 `recordMutation()` — one writer, so no caller invents its own
       shape.
-- [ ] 1.2.4 A script to mint an admin token, separate from the publish-token
+- [x] 1.2.4 A script to mint an admin token, separate from the publish-token
       path.
 
 ### 1.3 Acceptance
-- [ ] 1.3.1 `signed_documents` stores the envelope as opaque TEXT. Olla must
+- [x] 1.3.1 `signed_documents` stores the envelope as opaque TEXT. Olla must
       be able to return it byte for byte; a parsed-and-reserialised document
       does not verify (spec §2.1).
 
