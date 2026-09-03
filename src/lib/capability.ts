@@ -8,6 +8,7 @@ export interface CapabilityDoc {
   capabilities: {
     v1: boolean;
     v2: boolean;
+    revocation: boolean;
     bundle: boolean;
     'lockfile-diff': boolean;
     supercompress: boolean;
@@ -45,6 +46,11 @@ export function capabilityDoc(env: Env): CapabilityDoc {
       'lockfile-diff': false,
       // supercompress (dictionary/CDC) is a §14 enhancement over baseline.
       supercompress: false,
+      // Advertising revocation makes a missing or expired statement refuse
+      // installs FLEET-WIDE (§2.11): the one document whose absence is a
+      // failure. It stays false until re-issuance runs on a schedule, and
+      // turning it on is a separate, deliberate act.
+      revocation: env.ADVERTISE_REVOCATION === '1',
       'transparency-log': true,
       'well-known-bundles': wellKnown,
     },

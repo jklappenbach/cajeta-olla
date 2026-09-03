@@ -26,6 +26,9 @@ export interface Env {
   // organization's document.
   CAJETA_ROOT_KEY_PEM?: string;
   CAJETA_ROOT_KEY_ID?: string;
+  // "1" advertises capabilities.revocation. Off until /v2/revocations is
+  // re-issued on a schedule — it fails CLOSED for every client at once.
+  ADVERTISE_REVOCATION?: string;
   // Require a verified namespace proof on publish (off in dev).
   REQUIRE_NAMESPACE?: string; // "1" enforces
 

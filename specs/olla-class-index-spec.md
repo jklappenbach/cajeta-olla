@@ -46,10 +46,12 @@ data supports the question; no endpoint answers it here.
 **1.5.4** A new search backend. This works with the D1 FTS5 provider and with
 Algolia, and changes neither.
 
-**1.6 Constraint — publish must not get slower in a way that matters.**
-Publishing is the path that must not break. Scanning is bounded work on
-bytes already in memory at publish time, and §6 says what happens when it
-fails anyway.
+**1.6 Constraint — publishing now depends on the scanner.** An archive that
+cannot be scanned is refused at upload (§6.1), which keeps the index complete
+by construction and means a scanner defect is a publish outage. Two things
+follow, and they are requirements rather than observations: the scan is
+bounded work on bytes already in memory at publish time (§1.3), and the
+scanner is tested against archives the real compiler produced (§7.1).
 
 ## 2. Reading the class list from an archive
 
@@ -97,8 +99,8 @@ index.
 
 **2.9** When an archive is malformed part-way through — a truncated index, a
 name length running past the end — the entries read so far are discarded and
-the archive counts as unscannable (§6.1). A partial class list is worse than
-none: it reads as a complete answer.
+the archive is unscannable (§6.1). A partial class list is worse than none: it
+reads as a complete answer, and nothing downstream can tell it from one.
 
 ## 3. The index
 
@@ -150,7 +152,9 @@ every unrelated query against it, so the class text is scored separately.
 ## 5. Lifecycle
 
 **5.1** When a version is published, it is scanned and its classes are
-indexed as part of the publish.
+indexed as part of the publish, in the same transaction. A version is never
+stored with its class rows missing, so "indexed" is not a state the catalog
+has to track for anything published after this exists.
 
 **5.2** When a version is retracted, its rows stay. Retraction is advisory —
 the version still resolves and still installs — and a developer chasing a
@@ -172,22 +176,36 @@ already indexed produces the same rows.
 ## 6. Failure and limits
 
 **6.1** When an archive cannot be scanned — bad magic, no trailing index,
-malformed, or not the library form — the publish still succeeds and the
-version is recorded as unindexed with the reason. Search is a convenience and
-publishing is not: a scanner that can reject a publish is a new way to fail
-at the one operation that must not.
+malformed, or not the library form — the upload is REFUSED, and the response
+names which of those it was. An archive olla cannot read is one it cannot
+describe, and refusing keeps the index complete by construction rather than
+by a reconciliation job that has to be run and watched.
 
-**6.2** When a version is recorded as unindexed, a later backfill retries it.
-Otherwise a transient fault or a fixed scanner bug leaves a library
-permanently invisible to class search with nothing recording why.
+**6.1.1** The cost is real and is accepted deliberately: a defect in the
+scanner becomes a failure to publish, on the path that matters most. It is
+bounded by keeping the scanner small — it reads a header, a manifest and a
+list of names, and parses no payload — and by §7.1, which tests it against
+archives the real compiler produced rather than fixtures written to match the
+parser.
+
+**6.1.2** A refusal names the archive's own defect, never "indexing failed".
+A publisher who cannot publish needs to know whether to rebuild, re-package,
+or report a bug in olla.
+
+**6.2** An archive already published when this is built may still be
+unscannable, and cannot be refused after the fact. The backfill records those
+with the reason and moves on; the catalog reports how many, so a backfill that
+silently indexed a third of the repository is visible rather than assumed
+complete.
 
 **6.3** When an archive declares more entries than a stated ceiling, or a
-name longer than a stated ceiling, it is not scanned. The counts come from
-the archive, which is data the server did not write.
+name longer than a stated ceiling, it is unscannable and refused per §6.1.
+The counts come from the archive, which is data the server did not write and
+must not size an allocation from.
 
 **6.4** The number of class rows a single version may contribute is bounded,
-and an archive exceeding it is recorded as unindexed rather than truncated
-(§2.9 — a partial list reads as a complete one).
+and an archive exceeding it is refused rather than truncated — for §2.9's
+reason, that a partial list is indistinguishable from a complete one.
 
 ## 7. Conformance
 

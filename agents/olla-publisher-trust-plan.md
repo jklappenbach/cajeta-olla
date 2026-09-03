@@ -157,47 +157,51 @@ document and a credential that is not a publish token.
 ## Unit 3 — Serve the documents
 
 ### 3.1 TDD
-- [ ] 3.1.1 `GET /v2/org-keys/<org>` returns the stored envelope byte for
+- [x] 3.1.1 `GET /v2/org-keys/<org>` returns the stored envelope byte for
       byte.
-- [ ] 3.1.2 An organization with no document returns 404.
-- [ ] 3.1.3 THE distinction: a D1 failure returns 503, never 404. A 404 for
+- [x] 3.1.2 An organization with no document returns 404.
+- [x] 3.1.3 THE distinction: a D1 failure returns 503, never 404. A 404 for
       a transient fault turns an outage into a fleet-wide verification
       bypass (spec §2.3).
-- [ ] 3.1.4 `GET /v2/repository-keys` and `GET /v2/revocations` behave the
+- [x] 3.1.4 `GET /v2/repository-keys` and `GET /v2/revocations` behave the
       same way.
-- [ ] 3.1.5 Capabilities advertise `v2` and `"revocation": false`.
-- [ ] 3.1.6 An expired stored document is NOT served — 404, as though
+- [x] 3.1.5 Capabilities advertise `v2` and `"revocation": false`.
+- [x] 3.1.6 An expired stored document is NOT served — 404, as though
       absent, and a warning is logged. Serving it would push the refusal
       onto every client at once.
-- [ ] 3.1.7 An organization document is served with a cache lifetime, and
+- [x] 3.1.7 An organization document is served with a cache lifetime, and
       that lifetime never outlives the document's own `not-after`. A cached
       document outliving its expiry is a stale document a client cannot
       refuse, because it never sees it.
-- [ ] 3.1.8 THE cache test: a revocation statement is served
+- [x] 3.1.8 THE cache test: a revocation statement is served
       NON-cacheable. Every other document here caches for hours; this one
       must not, because a cached revocation is a revocation an attacker
       gets for free. The pair with 3.1.7 is the check — one document
       cached, one not.
-- [ ] 3.1.9 A 503 is never cached. Caching a failure turns a transient
+- [x] 3.1.9 A 503 is never cached. Caching a failure turns a transient
       outage into a persistent one.
 
 ### 3.2 Coding
-- [ ] 3.2.1 `src/routes/trust.ts` — the three GET handlers.
-- [ ] 3.2.2 Cache headers per kind. Organization documents and the
+- [x] 3.2.1 `src/routes/trust.ts` — the three GET handlers.
+- [x] 3.2.2 Cache headers per kind. Organization documents and the
       delegation: `public, max-age=<hours>`, clamped so it never exceeds
       the document's remaining `not-after`. Revocations: `no-store`.
       Errors: `no-store`.
-- [ ] 3.2.3 One helper decides the header from the document kind, so a new
+- [x] 3.2.3 One helper decides the header from the document kind, so a new
       endpoint cannot pick its own policy by omission.
-- [ ] 3.2.4 Capabilities gains `revocation`, defaulting false.
+- [x] 3.2.4 Capabilities gains `revocation`, defaulting false.
 
 ### 3.3 Acceptance
-- [ ] 3.3.1 A cajeta client with the production root installed fetches and
+- [x] 3.3.1 A cajeta client with the production root installed fetches and
       verifies the real delegation from a locally running olla.
-- [ ] 3.3.2 Measure the origin read rate under a repeated-install loop and
+- [~] 3.3.2 Measure the origin read rate under a repeated-install loop and
       confirm the cache is doing the work — the storage choice assumes the
       origin is hit per colo per TTL, not per install, and an assumption
-      that load-bearing deserves one measurement.
+      that load-bearing deserves one measurement. BLOCKED on Unit 7: this
+      needs the real edge cache, and `wrangler dev` has none, so any local
+      number would measure the loop rather than the cache. The headers it
+      depends on are verified (3.1.7, 3.1.8) — what is unmeasured is
+      whether Cloudflare honours them at the rate the D1 choice assumed.
 
 ## Unit 4 — Signed release metadata
 
