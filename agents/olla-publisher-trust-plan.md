@@ -314,7 +314,7 @@ document and a credential that is not a publish token.
       keys is a trap for the next reader.
 
 ### 6.3 Acceptance
-- [~] 6.3.1 Sign organization documents for the libraries we publish, and
+- [x] 6.3.1 Sign organization documents for the libraries we publish, and
       upload them. Cheap now because only our own libraries publish —
       spec §6.2.1 says this stops being true the moment anyone external
       does, so it is worth doing before then. BLOCKED on an offline root
@@ -326,6 +326,14 @@ document and a credential that is not a publish token.
       the root signature, as it must), `POST /v2/admin/org-keys/<org>` stores
       it under an owner token, the same upload under the wrong URL org is 400,
       and `GET /v2/org-keys/<org>` serves it back.
+      DONE 2026-09-03. `dev.cajeta` signed at the offline ceremony and
+      uploaded (200, stored under olla-root-1, expires 2027-09-03); the
+      repository delegation was uploaded in the same pass — it had been
+      signed on 2026-09-02 and never served, so a client could verify an
+      organization but not that the release key signing metadata was
+      delegated. Both come back byte-identical to the signed files, and
+      `cajeta trust verify-document` ACCEPTS what production serves, using
+      the client's own parsers.
       CUTOVER, measured against production 2026-09-03: the publish token's
       principal is `cajeta-ci`, not `dev.cajeta`, and the principal IS the
       organization. Julian chose to rename rather than adopt `cajeta-ci` as a
@@ -386,15 +394,29 @@ shipped** (spec §1.7).
       the table to work around that would delete the evidence that
       immutability holds. Separate tsconfig, so Worker code still cannot
       typecheck against Node APIs.
-- [ ] 7.2.2 Apply migrations to production and deploy. OPERATOR: needs
-      Cloudflare credentials this environment does not hold.
+- [x] 7.2.2 Migrations 0005-0007 applied and the Worker deployed
+      (version e91bbf16, ALLOW_UNSIGNED=0, CAJETA_ROOT_KEY_ID=olla-root-1).
+      Verified live afterwards: org-keys 200, repository-keys 200,
+      revocations 404 and `capabilities.revocation` false (7.3.3),
+      `POST /v2/keys` 404, an admin endpoint 401 unauthenticated, a document
+      posted under the wrong URL org 400 ("speaks for 'dev.cajeta'"), a
+      replay of the same issued-at 409, an unsigned publish 401, and every
+      release in the catalog resolving 200 (§3.7).
+      NOTE: releases published before this deploy carry NO `signed` field —
+      they predate release-metadata signing, which §2.7.3 allows. Nothing
+      already in the registry gains a publisher binding until it is
+      republished, so 7.3.1 needs a fresh publish rather than an existing
+      artifact.
 
 ### 7.3 Acceptance
 - [ ] 7.3.1 A default-configured cajeta client installs a real library from
-      production olla and reports a verified publisher. Blocked on 7.2.2, and
-      on the same fixture gap as 4.3.1: the conformance fixture is
-      placeholder bytes, and a real install needs a genuine `.cja` the
-      resolver will parse.
+      production olla and reports a verified publisher. 7.2.2 is done; what
+      remains is that no artifact in production carries signed release
+      metadata yet, and the organization a client verifies against comes
+      from that metadata. So this needs a REPUBLISH of at least one library
+      through CI (which now signs), not just an install against what is
+      there. Cheapest path: tag one small library and let `lib-release.yml`
+      publish it.
 - [ ] 7.3.2 Hand back to the toolchain's `publisher-trust` Unit 6, which
       flips the client default. Spec 9.3 there forbids flipping it before
       this point, and this is that point.
