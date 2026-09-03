@@ -3,8 +3,13 @@
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers/types"
+    ],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -16,6 +21,17 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "test/**/*.ts"],
-  "exclude": ["node_modules", "dist", "ui"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "test/unit/**/*.ts",
+    "test/*.d.ts",
+    "test/helpers/**/*.ts",
+    "test/setup/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "ui"
+  ]
 }

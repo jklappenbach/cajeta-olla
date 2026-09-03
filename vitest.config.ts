@@ -58,5 +58,9 @@ export default defineConfig({
   ],
   test: {
     setupFiles: ['./test/setup/apply-migrations.ts'],
+    // test/conformance runs in NODE against a running server
+    // (vitest.conformance.config.ts). It cannot run inside workerd, so it is
+    // excluded here rather than left to fail confusingly.
+    exclude: ['**/node_modules/**', 'test/conformance/**'],
   },
 });

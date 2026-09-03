@@ -354,21 +354,51 @@ document and a credential that is not a publish token.
 shipped** (spec §1.7).
 
 ### 7.1 TDD
-- [ ] 7.1.1 `test/conformance` runs the toolchain's contract assertions
-      against a locally running olla.
-- [ ] 7.1.2 The contract's §8.3 self-checks, which no client can observe:
-      the cross-organization refusal, staged-vs-applied reporting, remove
-      ordering, and the audit record.
+- [x] 7.1.1 `test/conformance` runs the toolchain's contract assertions
+      against a locally running olla. 14 assertions over real HTTP: the
+      capability document and its header, the three signed documents,
+      byte-identical service of the org document, absence-is-404, release
+      metadata with the signed half beside the plain one, the §3.7 obligation
+      (never 404 a coordinate whose blob still serves), the upload refusals,
+      and credential separation. Runs in NODE, not workerd — the unit suite
+      calls handlers directly and cannot see the router or the middleware,
+      which is exactly where a server passes its own tests and fails a client.
+- [~] 7.1.2 The contract's §8.3 self-checks. Two of the four named are done
+      and asserted both in the unit suite and over the wire: the
+      cross-organization refusal (5.1.1) and the audit record (§3.10).
+      The other two are checks on surfaces olla DOES NOT HAVE — measured, not
+      assumed: no `.delete(` route anywhere in `src/`, and no occurrence of
+      "staged"/"staging". So "remove retires the blob before the metadata"
+      and "a staged change reads back as STAGED" are vacuous here. Writing
+      tests for them would assert a feature into existence.
+      GAP FOUND, and it is a plan gap rather than a code one: olla's own spec
+      §3.9 requires that deleting an organization show the owner which
+      archives that makes unverifiable, and confirm before proceeding. No
+      unit in this plan covers it and nothing implements it. Recorded rather
+      than quietly added — it needs its own unit.
 
 ### 7.2 Coding
-- [ ] 7.2.1 Wire `test:conformance` to a `wrangler dev` instance.
-- [ ] 7.2.2 Apply migrations to production and deploy.
+- [x] 7.2.1 `npm run test:conformance` boots `wrangler dev`, bootstraps the
+      development root, installs a signed key document, publishes a fixture
+      through the real refusals, and points a Node-side vitest at it.
+      Idempotent across runs: the fixture takes a fresh version each time,
+      because re-publishing a coordinate is correctly refused and clearing
+      the table to work around that would delete the evidence that
+      immutability holds. Separate tsconfig, so Worker code still cannot
+      typecheck against Node APIs.
+- [ ] 7.2.2 Apply migrations to production and deploy. OPERATOR: needs
+      Cloudflare credentials this environment does not hold.
 
 ### 7.3 Acceptance
 - [ ] 7.3.1 A default-configured cajeta client installs a real library from
-      production olla and reports a verified publisher.
+      production olla and reports a verified publisher. Blocked on 7.2.2, and
+      on the same fixture gap as 4.3.1: the conformance fixture is
+      placeholder bytes, and a real install needs a genuine `.cja` the
+      resolver will parse.
 - [ ] 7.3.2 Hand back to the toolchain's `publisher-trust` Unit 6, which
       flips the client default. Spec 9.3 there forbids flipping it before
       this point, and this is that point.
-- [ ] 7.3.3 `revocation` stays advertised false. Turning it on is separate
-      work and needs scheduled re-issuance first (spec §6.4).
+- [x] 7.3.3 `revocation` stays advertised false — asserted in the
+      conformance suite, over the wire, rather than left as an intention.
+      Turning it on is separate work and needs scheduled re-issuance first
+      (spec §6.4).
