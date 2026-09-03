@@ -121,37 +121,37 @@ document and a credential that is not a publish token.
 ## Unit 2 — Verify and accept signed documents
 
 ### 2.1 TDD
-- [ ] 2.1.1 An envelope signed by the trusted root is accepted and stored.
-- [ ] 2.1.2 An envelope signed by anything else is REFUSED and not stored.
-- [ ] 2.1.3 A delegation POSTed to the org-keys endpoint is refused: the
+- [x] 2.1.1 An envelope signed by the trusted root is accepted and stored.
+- [x] 2.1.2 An envelope signed by anything else is REFUSED and not stored.
+- [x] 2.1.3 A delegation POSTed to the org-keys endpoint is refused: the
       type discriminator inside the signature decides, not the URL
       (spec §3.3).
-- [ ] 2.1.4 An organization document POSTed to the delegation endpoint is
+- [x] 2.1.4 An organization document POSTed to the delegation endpoint is
       refused, the same test from the other side.
-- [ ] 2.1.5 A document older than the one already stored is refused
+- [x] 2.1.5 A document older than the one already stored is refused
       (spec §3.4) — and the same document is accepted when nothing is
       stored yet. The pair is the check.
-- [ ] 2.1.6 An expired document is refused at upload, not merely at serve
+- [x] 2.1.6 An expired document is refused at upload, not merely at serve
       time.
-- [ ] 2.1.7 A revocation is verified against the DELEGATION's keys, never
+- [x] 2.1.7 A revocation is verified against the DELEGATION's keys, never
       the root; a root-signed revocation is refused.
-- [ ] 2.1.8 The stored bytes are byte-identical to what was uploaded.
+- [x] 2.1.8 The stored bytes are byte-identical to what was uploaded.
 
 ### 2.2 Coding
-- [ ] 2.2.1 `src/lib/envelope.ts` — decode and verify an Ed25519 envelope
+- [x] 2.2.1 `src/lib/envelope.ts` — decode and verify an Ed25519 envelope
       with `crypto.subtle`. Verify over the DECODED payload exactly as
       transmitted; never re-serialise.
-- [ ] 2.2.2 `CAJETA_ROOT_KEY_PEM` / `CAJETA_ROOT_KEY_ID` as wrangler vars.
+- [x] 2.2.2 `CAJETA_ROOT_KEY_PEM` / `CAJETA_ROOT_KEY_ID` as wrangler vars.
       PUBLIC material — a var, not a secret, and never the private half.
-- [ ] 2.2.3 `src/routes/admin.ts` — POST `/v2/admin/org-keys/<org>`,
+- [x] 2.2.3 `src/routes/admin.ts` — POST `/v2/admin/org-keys/<org>`,
       `/v2/admin/repository-keys`, `/v2/admin/revocations`.
-- [ ] 2.2.4 Every accepted upload writes an audit record.
+- [x] 2.2.4 Every accepted upload writes an audit record.
 
 ### 2.3 Acceptance
-- [ ] 2.3.1 A document produced by the operator's `olla-key` toolkit
+- [x] 2.3.1 A document produced by the operator's `olla-key` toolkit
       uploads and stores successfully — the real ceremony output, not a
       fixture.
-- [ ] 2.3.2 Verified by review: no code path in this repository can produce
+- [x] 2.3.2 Verified by review: no code path in this repository can produce
       a root signature (spec §7.3).
 
 ## Unit 3 — Serve the documents

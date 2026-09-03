@@ -20,6 +20,12 @@ export interface Env {
   // its own Ed25519 log key. PEM (PKCS#8) + an opaque key id. Secrets in prod.
   LOG_SIGNING_KEY_PEM?: string;
   LOG_SIGNING_KEY_ID?: string;
+  // The repository ROOT public key (publisher-trust §3.1). PUBLIC material,
+  // so a var rather than a secret — olla never holds the private half, and an
+  // admin credential that could produce a root signature would forge any
+  // organization's document.
+  CAJETA_ROOT_KEY_PEM?: string;
+  CAJETA_ROOT_KEY_ID?: string;
   // Require a verified namespace proof on publish (off in dev).
   REQUIRE_NAMESPACE?: string; // "1" enforces
 

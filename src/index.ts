@@ -16,6 +16,7 @@ import { publish } from './routes/publish';
 import { bundle } from './routes/bundle';
 import { packages } from './routes/packages';
 import { keys } from './routes/keys';
+import { admin } from './routes/admin';
 import { v1 } from './routes/v1';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -59,6 +60,7 @@ app.route('/', transparency);
 app.route('/', publish);
 app.route('/', bundle);
 app.route('/', packages);
+app.route('/', admin);
 app.route('/', keys);
 app.route('/', v1);
 

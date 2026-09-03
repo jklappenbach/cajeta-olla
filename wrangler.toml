@@ -70,6 +70,18 @@ BUNDLE_ZSTD_LEVEL = "19"
 # (graduated trust), not a global flip to "1". Off for local dev too.
 REQUIRE_NAMESPACE = "0"
 
+# Repository ROOT public key (publisher-trust §3.1). PUBLIC material, so a var
+# and not a secret — and deliberately only the public half. Olla never holds
+# the root private key: the operator signs organization documents and the
+# delegation offline, and /v2/admin/* accepts the finished envelope. An admin
+# credential that could produce a root signature would forge any
+# organization's document, which is the collapse the design exists to bound.
+CAJETA_ROOT_KEY_ID = "olla-root-1"
+CAJETA_ROOT_KEY_PEM = """
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEASFBathIl7S6b1o47OeDrXMn/dxLxAQgBeGMq6R46wBM=
+-----END PUBLIC KEY-----"""
+
 # Transparency-log signing key (§15) is a SECRET — do NOT put it here. Locally
 # set LOG_SIGNING_KEY_ID / LOG_SIGNING_KEY_PEM in .dev.vars (gitignored); in
 # production use `wrangler secret put LOG_SIGNING_KEY_PEM`.

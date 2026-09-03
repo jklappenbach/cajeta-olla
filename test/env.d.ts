@@ -13,6 +13,8 @@ declare global {
   namespace Cloudflare {
     interface Env extends OllaEnv {
       TEST_MIGRATIONS: D1Migration[];
+    /** PKCS#8 PEM of the per-run throwaway root. Tests only; never in prod. */
+    TEST_ROOT_KEY_PEM: string;
     }
   }
 }
