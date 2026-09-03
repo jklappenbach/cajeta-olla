@@ -314,7 +314,7 @@ document and a credential that is not a publish token.
       keys is a trap for the next reader.
 
 ### 6.3 Acceptance
-- [x] 6.3.1 Sign organization documents for the libraries we publish, and
+- [~] 6.3.1 Sign organization documents for the libraries we publish, and
       upload them. Cheap now because only our own libraries publish —
       spec §6.2.1 says this stops being true the moment anyone external
       does, so it is worth doing before then. BLOCKED on an offline root
@@ -326,7 +326,25 @@ document and a credential that is not a publish token.
       the root signature, as it must), `POST /v2/admin/org-keys/<org>` stores
       it under an owner token, the same upload under the wrong URL org is 400,
       and `GET /v2/org-keys/<org>` serves it back.
-      DONE 2026-09-03. `dev.cajeta` signed at the offline ceremony and
+      REOPENED 2026-09-03 by the first real publish: the document names key
+      id `olla-ci-1`, and CI signs with `cajeta-ci-1`. `olla-ci-1` was an
+      example id lifted out of olla-ci-publish.md and never checked against
+      what CI actually sends, so the ceremony command carried it. The upload
+      was refused 403 "key '...' is not in the signed key document for
+      'dev.cajeta'".
+      The PUBLIC KEY is correct — measured, not assumed: the key in the
+      served document verifies the real detached signature on
+      dev.cajeta.unit@0.2.4 under `openssl pkeyutl`. Only the label is
+      wrong, so the fix is one word in the ceremony and a re-upload with a
+      newer issued-at.
+      Everything else in the chain was proven by the same failure: the
+      publish token's principal IS `dev.cajeta` (the org document was
+      found), the namespace check passed, and the refusal named the exact
+      problem rather than failing vaguely.
+      Recovering the id needed no credentials — olla serves it at
+      `/:pkg/:v/:pkg-:v.cja.sig.keyid`, and every past artifact says
+      `cajeta-ci-1`.
+      Earlier progress, still true: `dev.cajeta` signed at the ceremony and
       uploaded (200, stored under olla-root-1, expires 2027-09-03); the
       repository delegation was uploaded in the same pass — it had been
       signed on 2026-09-02 and never served, so a client could verify an
