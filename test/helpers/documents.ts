@@ -94,6 +94,7 @@ export function delegation(over: Record<string, unknown> = {}) {
   return {
     type: 'repository-delegation',
     repository: 'https://olla.cajeta.dev',
+    'issued-at': '2026-01-01T00:00:00Z',
     'not-after': YEAR_AWAY,
     keys: [
       {

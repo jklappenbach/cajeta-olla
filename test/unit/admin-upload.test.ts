@@ -50,6 +50,32 @@ function upload(path: string, body: string, over: Partial<typeof env> = {}) {
 }
 
 describe('admin uploads', () => {
+  // §2.9.4 — issued-at is required on every signed document, the delegation
+  // included. It was the one kind without it: specified before the freshness
+  // rule existed, and the rule was written inside the organization-document
+  // section and never carried across. A delegation without it is replayable,
+  // and a replay reinstates the release key that was rotated out.
+  it('refuses a delegation with no issued-at', async () => {
+    const payload = delegation();
+    delete (payload as Record<string, unknown>)['issued-at'];
+    const res = await upload(
+      '/v2/admin/repository-keys',
+      await makeEnvelope({ payload }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json<{ error: string }>()).error).toMatch(/issued-at/);
+  });
+
+  it('refuses an organization document with no issued-at', async () => {
+    const payload = orgDocument({ organization: 'no-issued.example' });
+    delete (payload as Record<string, unknown>)['issued-at'];
+    const res = await upload(
+      '/v2/admin/org-keys/no-issued.example',
+      await makeEnvelope({ payload }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it('stores an organization document signed by the root', async () => {
     const text = await makeEnvelope({ payload: orgDocument() });
     const res = await upload('/v2/admin/org-keys/dev.cajeta', text);
@@ -225,16 +251,9 @@ describe('admin uploads', () => {
 // about framing, base64 or what the signature covers, this is where it shows.
 describe('the operator toolkit (2.3.1)', () => {
   it('uploads and stores the real signed delegation', async () => {
-    // A delegation is a singleton — one row, keyed (repository-keys, ''). The
-    // revocation tests above stored a synthetic one expiring in 2099, and the
-    // real ceremony output expires in 2027, so the replay check would refuse
-    // it. That refusal is correct (a delegation is ordered by its not-after,
-    // see VerifiedDocument.ordering); clear the row so this test measures what
-    // it is about, which is whether the toolkit's bytes verify.
-    await env.DB.prepare(
-      "DELETE FROM signed_documents WHERE kind = 'repository-keys' AND subject = ''",
-    ).run();
-
+    // No special handling needed: the real delegation carries issued-at
+    // 2026-09-03 and the synthetic one above is dated 2026-01-01, so the
+    // replay check sees it as the newer document, which it is.
     const res = await upload('/v2/admin/repository-keys', realDelegation, {
       CAJETA_ROOT_KEY_PEM: realRootPem,
       CAJETA_ROOT_KEY_ID: 'olla-root-1',

@@ -25,19 +25,19 @@ export interface VerifiedDocument {
   keyId: string;
   /** Organization for org-keys; '' for the repository-wide kinds. */
   subject: string;
-  issuedAt: string | null;
-  notAfter: string;
   /**
-   * The value the replay check (§3.4) orders documents by.
+   * When the document was produced. REQUIRED on all three kinds, and the
+   * value the replay check (§3.4) orders by.
    *
-   * `issued-at` where the document has one. A repository delegation has none —
-   * its schema requires only type, repository, not-after and keys — so its
-   * expiry is the only ordering value it offers, and a re-issued delegation
-   * normally carries a later one. The cost is that DELIBERATELY shortening a
-   * delegation's window is refused as a replay; re-issue with a later
-   * not-after and revoke instead, which is the mechanism built for it.
+   * The delegation acquired this late — it was specified before §2.9 existed
+   * and the rule was written inside the organization-document section, so for
+   * two days it was the one replayable document. Nothing justified the gap:
+   * a superseded delegation is still validly signed and still inside its own
+   * window, so serving last quarter's copy reinstates the release key that was
+   * rotated out.
    */
-  ordering: string;
+  issuedAt: string;
+  notAfter: string;
 }
 
 class EnvelopeError extends Error {}
@@ -139,8 +139,10 @@ export async function verifyEnvelope(
   }
 
   const notAfter = field(payload, 'not-after');
-  const issuedAt =
-    typeof payload['issued-at'] === 'string' ? (payload['issued-at'] as string) : null;
+  // Required on every kind. An optional issued-at cannot be checked — a
+  // document omitting it would simply skip the replay comparison, which is
+  // the whole attack.
+  const issuedAt = field(payload, 'issued-at');
 
   return {
     kind,
@@ -150,7 +152,6 @@ export async function verifyEnvelope(
     subject: kind === 'org-keys' ? field(payload, 'organization') : '',
     issuedAt,
     notAfter,
-    ordering: issuedAt ?? notAfter,
   };
 }
 

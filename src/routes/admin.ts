@@ -98,11 +98,11 @@ async function store(
 
   // Replay (§3.4): accepting an older document reinstates keys the
   // organization has already removed, which is how a revocation gets undone.
-  if (existing && doc.ordering <= existing.issued_at) {
+  if (existing && doc.issuedAt <= existing.issued_at) {
     return jsonError(
       c as never,
       409,
-      `stored document is newer (${existing.issued_at}); refusing ${doc.ordering}`,
+      `stored document is newer (${existing.issued_at}); refusing ${doc.issuedAt}`,
     );
   }
 
@@ -122,7 +122,7 @@ async function store(
       doc.kind,
       subject,
       doc.envelope,
-      doc.ordering,
+      doc.issuedAt,
       doc.notAfter,
       doc.keyId,
       new Date().toISOString(),
@@ -134,7 +134,7 @@ async function store(
       before: existing
         ? { keyId: existing.key_id, issuedAt: existing.issued_at }
         : null,
-      after: { keyId: doc.keyId, issuedAt: doc.ordering, notAfter: doc.notAfter },
+      after: { keyId: doc.keyId, issuedAt: doc.issuedAt, notAfter: doc.notAfter },
     }),
   ]);
 
