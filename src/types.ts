@@ -29,6 +29,12 @@ export interface Env {
   // "1" advertises capabilities.revocation. Off until /v2/revocations is
   // re-issued on a schedule — it fails CLOSED for every client at once.
   ADVERTISE_REVOCATION?: string;
+  // The DELEGATED key that signs release metadata (§2.6). A SECRET — unlike
+  // the root, this one is online because it signs on every publish, which is
+  // the whole point of delegating: a compromise here forges release metadata
+  // and nothing else.
+  RELEASE_SIGNING_KEY_PEM?: string;
+  RELEASE_SIGNING_KEY_ID?: string;
   // Require a verified namespace proof on publish (off in dev).
   REQUIRE_NAMESPACE?: string; // "1" enforces
 
@@ -62,6 +68,10 @@ export interface VersionRow {
   published_at: string;
   signature: string | null; // publisher's detached sig, base64
   attestation: string | null; // in-toto/SLSA provenance JSON
+  /** The signed release envelope, verbatim (§2.6). Null when unsigned. */
+  signed_metadata: string | null;
+  /** Authenticated principal that published it (§4.5). */
+  organization: string | null;
 }
 
 export interface TrustKeyRow {

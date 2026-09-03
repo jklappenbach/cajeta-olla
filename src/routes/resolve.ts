@@ -52,5 +52,19 @@ resolve.get('/v2/resolve', async (c) => {
   if (row.retracted === 1 && row.retracted_reason) {
     body['retracted-reason'] = row.retracted_reason;
   }
+  // The signed half, carried in the SAME response so verification costs no
+  // extra round trip (§2.6). It is never merged into the plain fields above:
+  // the client reads the envelope as authoritative and ignores them, because
+  // merging is how an unsigned value ends up trusted (§2.7).
+  if (row.signed_metadata) {
+    try {
+      body.signed = JSON.parse(row.signed_metadata);
+    } catch {
+      // Unparseable stored metadata is omitted rather than served broken; a
+      // client seeing no `signed` falls back, one seeing a malformed envelope
+      // fails the install.
+      console.warn(`[trust] ${name}@${chosen} has unparseable signed_metadata`);
+    }
+  }
   return c.json(body);
 });

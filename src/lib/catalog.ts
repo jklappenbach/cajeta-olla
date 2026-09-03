@@ -84,6 +84,10 @@ export interface PublishInput {
   attestation: string | null; // in-toto/SLSA provenance JSON
   logSignatureB64: string; // registry log-entry signature
   logKeyId: string; // registry log key id
+  /** The signed release envelope, verbatim (§2.6). Null when unsigned. */
+  signedMetadata?: string | null;
+  /** Authenticated principal that published it (§4.5). */
+  organization?: string | null;
   now: string; // ISO 8601
 }
 
@@ -113,12 +117,13 @@ export async function recordPublish(env: Env, p: PublishInput): Promise<void> {
     env.DB
       .prepare(
         `INSERT INTO versions
-           (name, version, sha256, manifest_json, readme, retracted, retracted_reason, key_id, published_at, signature, attestation)
-         VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?)`,
+           (name, version, sha256, manifest_json, readme, retracted, retracted_reason, key_id, published_at, signature, attestation, signed_metadata, organization)
+         VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         p.name, p.version, p.sha, p.manifestJson, p.readme, p.keyId, p.now,
-        p.signature, p.attestation,
+        p.signature, p.attestation, p.signedMetadata ?? null,
+        p.organization ?? null,
       ),
     env.DB
       .prepare(
@@ -169,16 +174,26 @@ export async function listPackages(
   return { packages: rows.results ?? [], nbPackages: countRow?.n ?? 0 };
 }
 
+/**
+ * Set or clear the retraction, updating the SIGNED metadata alongside the
+ * plain flag (§2.8). A retraction carried only in the plain half is one a
+ * mirror clears invisibly, so the signed statement is what actually changes
+ * and the flag beside it is a convenience for clients that do not verify.
+ */
 export async function setRetracted(
   env: Env,
   name: string,
   version: string,
   reason: string,
+  retracted = true,
+  signedMetadata: string | null = null,
 ): Promise<boolean> {
   const res = await env.DB.prepare(
-    'UPDATE versions SET retracted = 1, retracted_reason = ? WHERE name = ? AND version = ?',
+    `UPDATE versions
+        SET retracted = ?, retracted_reason = ?, signed_metadata = ?
+      WHERE name = ? AND version = ?`,
   )
-    .bind(reason, name, version)
+    .bind(retracted ? 1 : 0, retracted ? reason : null, signedMetadata, name, version)
     .run();
   return (res.meta.changes ?? 0) > 0;
 }

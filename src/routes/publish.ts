@@ -4,7 +4,7 @@
 // index-on-publish (FTS triggers) → transparency-log append.
 //
 // Also POST /v2/retract {name, version, reason} — non-destructive yank.
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import type { Env } from '../types';
 import { authenticatePublish } from '../lib/auth';
 import { getVersion, recordPublish, setRetracted, getTrustKey } from '../lib/catalog';
@@ -16,6 +16,8 @@ import { verifyAttestation } from '../lib/attestation';
 import { domainForPackage, isNamespaceVerified } from '../lib/namespace';
 import { indexPackage, removeFromIndex } from '../lib/search-index';
 import { jsonError } from '../lib/http';
+import { signRelease } from '../lib/sign';
+import { recordMutation } from '../lib/audit';
 
 export const publish = new Hono<{ Bindings: Env }>();
 
@@ -129,6 +131,17 @@ publish.post('/v2/publish', async (c) => {
     now,
   );
 
+  // §4.5 — the organization is the AUTHENTICATED PRINCIPAL. Never the
+  // archive's name: a name is a string the publisher chooses, and deriving
+  // ownership from one is the defect this design exists to remove.
+  const organization = auth.principal ?? '';
+  const signedMetadata = await signRelease(c.env, {
+    name,
+    version,
+    sha256: computed,
+    organization,
+  });
+
   await recordPublish(c.env, {
     name,
     version,
@@ -145,7 +158,17 @@ publish.post('/v2/publish', async (c) => {
     attestation: attestationJson,
     logSignatureB64: logSig.signatureB64,
     logKeyId: logSig.keyId,
+    signedMetadata,
+    organization,
     now,
+  });
+
+  await recordMutation(c.env, {
+    actor: organization,
+    action: 'release.publish',
+    target: `${name}@${version}`,
+    before: null,
+    after: { sha256: computed, organization, signed: signedMetadata !== null },
   });
 
   // 7. Index-on-publish (Algolia; D1 FTS is maintained by triggers).
@@ -162,9 +185,17 @@ publish.post('/v2/publish', async (c) => {
   );
 });
 
-publish.post('/v2/retract', async (c) => {
+// Retraction is ADVISORY: the version still resolves and still installs, so a
+// lockfile already pinning it keeps working. What changes is the `retracted`
+// flag INSIDE the signed payload, which means re-signing — a retraction
+// carried only in the plain half is one a mirror clears invisibly (§2.8).
+async function setRetraction(
+  c: Context<{ Bindings: Env }>,
+  retracted: boolean,
+) {
   const auth = await authenticatePublish(c.env, c.req.raw);
   if (!auth.ok) return jsonError(c, auth.status ?? 401, auth.message ?? 'unauthorized');
+
   let body: { name?: string; version?: string; reason?: string };
   try {
     body = await c.req.json();
@@ -174,9 +205,46 @@ publish.post('/v2/retract', async (c) => {
   if (!body.name || !body.version) {
     return jsonError(c, 400, "body must include 'name' and 'version'");
   }
-  const ok = await setRetracted(c.env, body.name, body.version, body.reason ?? '');
+
+  const row = await getVersion(c.env, body.name, body.version);
+  if (!row) return jsonError(c, 404, `${body.name}@${body.version} not found`);
+
+  const reason = body.reason ?? '';
+  // The organization comes from what was recorded at publish, not from the
+  // caller — a retraction must not be able to restate who published it.
+  const organization = row.organization ?? auth.principal ?? '';
+  const signedMetadata = await signRelease(c.env, {
+    name: body.name,
+    version: body.version,
+    sha256: row.sha256,
+    organization,
+    ...(retracted ? { retracted: true, 'retracted-reason': reason } : { retracted: false }),
+  });
+
+  const ok = await setRetracted(
+    c.env, body.name, body.version, reason, retracted, signedMetadata,
+  );
   if (!ok) return jsonError(c, 404, `${body.name}@${body.version} not found`);
-  // Drop yanked packages from the Algolia index so they leave search results.
-  await removeFromIndex(c.env, body.name);
-  return c.json({ retracted: { name: body.name, version: body.version } });
-});
+
+  await recordMutation(c.env, {
+    actor: auth.principal ?? 'unknown',
+    action: retracted ? 'release.retract' : 'release.unretract',
+    target: `${body.name}@${body.version}`,
+    before: { retracted: row.retracted === 1 },
+    after: { retracted, reason: retracted ? reason : null },
+  });
+
+  if (retracted) {
+    // Drop yanked packages from the Algolia index so they leave search.
+    await removeFromIndex(c.env, body.name);
+  }
+  return c.json({
+    [retracted ? 'retracted' : 'unretracted']: {
+      name: body.name,
+      version: body.version,
+    },
+  });
+}
+
+publish.post('/v2/retract', (c) => setRetraction(c, true));
+publish.post('/v2/unretract', (c) => setRetraction(c, false));

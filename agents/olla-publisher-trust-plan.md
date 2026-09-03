@@ -206,31 +206,42 @@ document and a credential that is not a publish token.
 ## Unit 4 — Signed release metadata
 
 ### 4.1 TDD
-- [ ] 4.1.1 A publish produces release metadata signed by the DELEGATED
+- [x] 4.1.1 A publish produces release metadata signed by the DELEGATED
       key, carried under `signed` in the resolve body.
-- [ ] 4.1.2 The signed payload carries `sha256`, `organization`, `name`,
+- [x] 4.1.2 The signed payload carries `sha256`, `organization`, `name`,
       `version`.
-- [ ] 4.1.3 `organization` comes from the authenticated principal, never
+- [x] 4.1.3 `organization` comes from the authenticated principal, never
       from the archive name (spec §4.5).
-- [ ] 4.1.4 The plain half is still served for non-verifying clients, and
+- [x] 4.1.4 The plain half is still served for non-verifying clients, and
       the two halves may disagree without the signed one changing.
-- [ ] 4.1.5 Retracting sets `retracted` INSIDE the signed payload and
+- [x] 4.1.5 Retracting sets `retracted` INSIDE the signed payload and
       re-signs; the plain flag alone is not enough.
-- [ ] 4.1.6 Un-retracting works and is audited.
-- [ ] 4.1.7 A release whose blob is served always resolves — the §2.9
+- [x] 4.1.6 Un-retracting works and is audited.
+- [x] 4.1.7 A release whose blob is served always resolves — the §2.9
       invariant, asserted over the whole catalog rather than one release.
 
 ### 4.2 Coding
-- [ ] 4.2.1 `src/lib/sign.ts` — sign a payload with
+- [x] 4.2.1 `src/lib/sign.ts` — sign a payload with
       `RELEASE_SIGNING_KEY_PEM` via `crypto.subtle`.
-- [ ] 4.2.2 `publish.ts` builds and signs release metadata; store it beside
+- [x] 4.2.2 `publish.ts` builds and signs release metadata; store it beside
       the version row.
-- [ ] 4.2.3 `resolve.ts` carries it under `signed`.
-- [ ] 4.2.4 Retract re-signs.
+- [x] 4.2.3 `resolve.ts` carries it under `signed`.
+- [x] 4.2.4 Retract re-signs.
 
 ### 4.3 Acceptance
-- [ ] 4.3.1 A cajeta client installs from a local olla and reports the
-      publisher binding, end to end.
+- [~] 4.3.1 A cajeta client installs from a local olla and reports the
+      publisher binding, end to end. OLLA'S HALF IS DONE and measured
+      against the real Worker: publish → `signed` on /v2/resolve, the
+      signature verified independently with `openssl pkeyutl -verify`
+      against the release public key, `organization` taken from the
+      principal (published `evil.example.thing`, signed organization is
+      the authenticated principal and not `evil.example`), and retraction
+      flipping `retracted` inside the signed payload. What is missing is a
+      cajeta PROCESS consuming it, which needs a project fixture and a
+      locally-rooted trust chain — the production delegation binds to
+      https://olla.cajeta.dev, so a local olla cannot serve it to an
+      origin-checking client. Lands with Unit 7, where spec §7.1 puts it:
+      pointing OllaContractTests at a running olla is how olla is checked.
 
 ## Unit 5 — Upload refusals, and namespaces from the signed list
 
