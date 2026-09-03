@@ -326,10 +326,23 @@ document and a credential that is not a publish token.
       the root signature, as it must), `POST /v2/admin/org-keys/<org>` stores
       it under an owner token, the same upload under the wrong URL org is 400,
       and `GET /v2/org-keys/<org>` serves it back.
-      CUTOVER NOTE: the publish token's principal IS the organization. If
-      `OLLA_TOKEN`'s principal is not `dev.cajeta`, CI publishes break the
-      moment the refusals go live, and re-minting the token is part of this
-      step rather than a separate discovery.
+      CUTOVER, measured against production 2026-09-03: the publish token's
+      principal is `cajeta-ci`, not `dev.cajeta`, and the principal IS the
+      organization. Julian chose to rename rather than adopt `cajeta-ci` as a
+      permanent public identity — it appears in every signed release payload
+      and at `/v2/org-keys/<org>`, and nothing verifies it yet, so this is the
+      cheapest the rename will ever be. Only 5 repos hold `OLLA_TOKEN`
+      (cajeta-http, -codec, -logging, -unit, -primavera), not the 16 with
+      packages. `scripts/mint-publish-token.mjs` added for it.
+      The CI signing key's PUBLIC half exists only in production
+      `trust_keys` — its private half is a GitHub secret that cannot be read
+      back. Recover it BEFORE migration 0007 drops that table (0007 copies
+      `public_key` into the audit log, so recovery survives, just awkwardly).
+      Client checked, not assumed: `verifyAgainstOrgDocument` matches the
+      artifact name against `doc.namespaces` and never against
+      `doc.organization`, so an organization name unrelated to its namespaces
+      verifies correctly. All 16 production packages are `dev.cajeta.*`, so
+      one organization and one namespace covers them.
 - [x] 6.3.2 The equal-`issued-at` refusal says "re-sign with a later
       issued-at" instead of claiming the stored document is newer. Found by
       re-running the ceremony command during the dry run — the operator path,
