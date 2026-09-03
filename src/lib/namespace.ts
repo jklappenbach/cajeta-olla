@@ -2,9 +2,21 @@
 // placing a token (their key fingerprint) in either:
 //   - a DNS TXT record at `_cajeta-publish.<domain>`, or
 //   - a file `.github/cajeta-publish.txt` in `<owner>/<repo>` (github method).
-// The check runs server-side (over DNS-over-HTTPS / raw.githubusercontent) and
-// is opaque to the client. Verified proofs are cached in the `namespaces`
-// table. Enforcement on publish is gated by REQUIRE_NAMESPACE.
+// The check runs server-side (over DNS-over-HTTPS / raw.githubusercontent).
+//
+// These are EVIDENCE GATHERING, not an authorisation check (publisher-trust
+// §4.4). A namespace enters an organization's signed key document at issuance,
+// on evidence of control over the name; the publish path reads that signed
+// list and never these tables. There is deliberately no function here that
+// turns a package name into an owner. The one that used to derived a domain
+// from the first two segments, which collapsed `uk.co.acme.thing` and
+// `uk.co.evil.thing` onto the public suffix `co.uk` — two unrelated
+// publishers on one ownership key (§1.4.2). Ownership is data the server
+// holds, not arithmetic on a string the publisher chose.
+//
+// Its name is left out on purpose: spec §7.3 makes "no code path derives an
+// organization from a name" a grep, and a comment naming the function keeps
+// the gate ringing forever.
 import type { Env } from '../types';
 
 export async function verifyDnsTxt(domain: string, token: string): Promise<boolean> {
@@ -71,12 +83,4 @@ export async function isNamespaceVerified(
     .bind(domain)
     .first<{ owner: string }>();
   return !!row && row.owner === owner;
-}
-
-/** Derive the namespace domain a package name claims: the first two
- *  dot-segments reversed (`com.acme.widgets` → `acme.com`). Best-effort. */
-export function domainForPackage(name: string): string | null {
-  const parts = name.split('.');
-  if (parts.length < 2) return null;
-  return `${parts[1]}.${parts[0]}`;
 }

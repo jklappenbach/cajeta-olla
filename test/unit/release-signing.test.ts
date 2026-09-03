@@ -14,15 +14,15 @@ import { env } from 'cloudflare:test';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { publish } from '../../src/routes/publish';
 import { resolve } from '../../src/routes/resolve';
-import { tokenHash } from '../../src/lib/auth';
 import { fromBase64 } from '../../src/lib/signature';
+import { makeOrg, publishAs, type Org } from '../helpers/publishing';
 
-const TOKEN = 'olla-publish-release-tests';
-const PRINCIPAL = 'dev.cajeta';
+const PRINCIPAL = 'dev.release';
 
 // A throwaway delegated release key, minted per run. Signing happens with
 // RELEASE_SIGNING_KEY_PEM; production holds the real one as a Worker secret.
 let releaseKeyPem: string;
+let org: Org;
 
 function pem(der: ArrayBuffer, label: string): string {
   let s = '';
@@ -30,14 +30,16 @@ function pem(der: ArrayBuffer, label: string): string {
   return `-----BEGIN ${label}-----\n${btoa(s).replace(/(.{64})/g, '$1\n')}\n-----END ${label}-----\n`;
 }
 
-function envWithKey(over: Record<string, unknown> = {}) {
+function releaseEnv(over: Record<string, unknown> = {}) {
   return {
-    ...env,
-    ALLOW_UNSIGNED: '1', // fixtures publish without an archive signature
     RELEASE_SIGNING_KEY_PEM: releaseKeyPem,
     RELEASE_SIGNING_KEY_ID: 'release-1',
     ...over,
-  } as typeof env;
+  };
+}
+
+function envWithKey(over: Record<string, unknown> = {}) {
+  return { ...env, ...releaseEnv(over) } as typeof env;
 }
 
 beforeAll(async () => {
@@ -50,28 +52,19 @@ beforeAll(async () => {
     'PRIVATE KEY',
   );
 
-  await env.DB.prepare(
-    `INSERT INTO publish_tokens (token_hash, principal, scopes, created_at, expires_at)
-     VALUES (?, ?, 'publish', ?, NULL)`,
-  )
-    .bind(await tokenHash(TOKEN), PRINCIPAL, new Date().toISOString())
-    .run();
+  // The upload refusals apply here too (§5.1.8), so these fixtures publish the
+  // way a real publisher does: a signed key document, and an archive signature
+  // made by a key inside it. `evil.example` is a namespace this organization
+  // legitimately holds — which is what makes the §4.5 assertion below sharp.
+  org = await makeOrg({
+    organization: PRINCIPAL,
+    namespaces: [PRINCIPAL, 'evil.example'],
+    keyId: 'release-tests-1',
+  });
 });
 
-async function doPublish(name: string, version: string, body = 'archive bytes') {
-  const form = new FormData();
-  form.set('archive', new Blob([body]), `${name}-${version}.cja`);
-  form.set('metadata', JSON.stringify({ name, version }));
-  form.set('manifest', JSON.stringify({ description: 'a test package' }));
-
-  return publish.fetch(
-    new Request('https://olla.cajeta.dev/v2/publish', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${TOKEN}` },
-      body: form,
-    }),
-    envWithKey(),
-  );
+async function doPublish(name: string, version: string, body?: string) {
+  return publishAs(org, name, version, { env: releaseEnv(), body });
 }
 
 async function doResolve(name: string, version: string) {
@@ -90,11 +83,11 @@ function signedPayload(body: Record<string, any>): Record<string, any> {
 
 describe('signed release metadata', () => {
   beforeAll(async () => {
-    expect((await doPublish('dev.cajeta.http', '1.0.0')).status).toBe(201);
+    expect((await doPublish('dev.release.http', '1.0.0')).status).toBe(201);
   });
 
   it('carries the signed envelope under `signed` (4.1.1)', async () => {
-    const { body } = await doResolve('dev.cajeta.http', '1.0.0');
+    const { body } = await doResolve('dev.release.http', '1.0.0');
     expect(body.signed).toBeTruthy();
     expect(body.signed.format).toBe(1);
     expect(body.signed['root-key-id']).toBe('release-1');
@@ -103,16 +96,16 @@ describe('signed release metadata', () => {
   });
 
   it('signs sha256, organization, name and version (4.1.2)', async () => {
-    const { body } = await doResolve('dev.cajeta.http', '1.0.0');
+    const { body } = await doResolve('dev.release.http', '1.0.0');
     const payload = signedPayload(body);
-    expect(payload.name).toBe('dev.cajeta.http');
+    expect(payload.name).toBe('dev.release.http');
     expect(payload.version).toBe('1.0.0');
     expect(payload.sha256).toBe(body.sha256);
     expect(payload.organization).toBe(PRINCIPAL);
   });
 
   it('verifies against the delegated release key', async () => {
-    const { body } = await doResolve('dev.cajeta.http', '1.0.0');
+    const { body } = await doResolve('dev.release.http', '1.0.0');
     const pair = await crypto.subtle.importKey(
       'pkcs8',
       fromBase64(releaseKeyPem.replace(/-----[^-]+-----|\s+/g, '')),
@@ -130,7 +123,7 @@ describe('signed release metadata', () => {
   });
 
   // §4.5, and the reason the whole spec exists. `evil.example.thing` is
-  // published by dev.cajeta; the signed organization must say dev.cajeta.
+  // published by dev.release; the signed organization must say dev.release.
   it('takes organization from the principal, not the name (4.1.3)', async () => {
     expect((await doPublish('evil.example.thing', '2.0.0')).status).toBe(201);
     const { body } = await doResolve('evil.example.thing', '2.0.0');
@@ -139,8 +132,8 @@ describe('signed release metadata', () => {
   });
 
   it('still serves the plain half beside it (4.1.4)', async () => {
-    const { body } = await doResolve('dev.cajeta.http', '1.0.0');
-    expect(body.name).toBe('dev.cajeta.http');
+    const { body } = await doResolve('dev.release.http', '1.0.0');
+    expect(body.name).toBe('dev.release.http');
     expect(body.sha256).toBeTruthy();
     expect(body.retracted).toBe(false);
   });
@@ -151,17 +144,17 @@ describe('signed release metadata', () => {
     await env.DB.prepare(
       "UPDATE versions SET retracted = 1, retracted_reason = 'tampered' WHERE name = ? AND version = ?",
     )
-      .bind('dev.cajeta.http', '1.0.0')
+      .bind('dev.release.http', '1.0.0')
       .run();
 
-    const { body } = await doResolve('dev.cajeta.http', '1.0.0');
+    const { body } = await doResolve('dev.release.http', '1.0.0');
     expect(body.retracted).toBe(true);
     expect(signedPayload(body).retracted).toBeFalsy();
 
     await env.DB.prepare(
       "UPDATE versions SET retracted = 0, retracted_reason = '' WHERE name = ? AND version = ?",
     )
-      .bind('dev.cajeta.http', '1.0.0')
+      .bind('dev.release.http', '1.0.0')
       .run();
   });
 });
@@ -171,7 +164,7 @@ describe('retraction re-signs (4.1.5, 4.1.6)', () => {
     return publish.fetch(
       new Request('https://olla.cajeta.dev/v2/retract', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        headers: { Authorization: `Bearer ${org.token}` },
         body: JSON.stringify({ name, version, reason }),
       }),
       envWithKey(),
@@ -182,7 +175,7 @@ describe('retraction re-signs (4.1.5, 4.1.6)', () => {
     return publish.fetch(
       new Request('https://olla.cajeta.dev/v2/unretract', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${TOKEN}` },
+        headers: { Authorization: `Bearer ${org.token}` },
         body: JSON.stringify({ name, version }),
       }),
       envWithKey(),
@@ -190,13 +183,13 @@ describe('retraction re-signs (4.1.5, 4.1.6)', () => {
   }
 
   beforeAll(async () => {
-    expect((await doPublish('dev.cajeta.yank', '1.0.0')).status).toBe(201);
+    expect((await doPublish('dev.release.yank', '1.0.0')).status).toBe(201);
   });
 
   it('sets retracted INSIDE the signed payload (4.1.5)', async () => {
-    expect((await retract('dev.cajeta.yank', '1.0.0', 'bad release')).status).toBe(200);
+    expect((await retract('dev.release.yank', '1.0.0', 'bad release')).status).toBe(200);
 
-    const { body } = await doResolve('dev.cajeta.yank', '1.0.0');
+    const { body } = await doResolve('dev.release.yank', '1.0.0');
     const payload = signedPayload(body);
     expect(payload.retracted).toBe(true);
     expect(payload['retracted-reason']).toBe('bad release');
@@ -205,15 +198,15 @@ describe('retraction re-signs (4.1.5, 4.1.6)', () => {
   });
 
   it('un-retracts, re-signing again (4.1.6)', async () => {
-    expect((await unretract('dev.cajeta.yank', '1.0.0')).status).toBe(200);
-    const { body } = await doResolve('dev.cajeta.yank', '1.0.0');
+    expect((await unretract('dev.release.yank', '1.0.0')).status).toBe(200);
+    const { body } = await doResolve('dev.release.yank', '1.0.0');
     expect(signedPayload(body).retracted).toBe(false);
     expect(body.retracted).toBe(false);
   });
 
   it('audits both (4.1.6, §3.10)', async () => {
     const { results } = await env.DB.prepare(
-      "SELECT action FROM audit_log WHERE target = 'dev.cajeta.yank@1.0.0' ORDER BY seq",
+      "SELECT action FROM audit_log WHERE target = 'dev.release.yank@1.0.0' ORDER BY seq",
     ).all<{ action: string }>();
     expect(results.map((r) => r.action)).toEqual([
       'release.publish',

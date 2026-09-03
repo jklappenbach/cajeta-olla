@@ -42,6 +42,12 @@ Seed a few packages (second terminal, with `dev` running):
 node scripts/seed.mjs
 ```
 
+The first run generates a **development root**, writes its public half into
+`.dev.vars`, and asks you to restart `npm run dev`; the second run installs a
+signed key document per seeded organization and publishes with a key named
+inside it. That is the same path a real publisher takes — the upload refusals
+(publisher-trust §5) are unconditional, so there is no flag that skips it.
+
 Smoke-test the download path the build tool uses:
 
 ```sh
@@ -134,13 +140,23 @@ curl -X POST $BASE/v2/keys -d '{"key-id":"acme-key-1","public-key":"-----BEGIN P
 # publish with the detached 64-byte sig + key-id (multipart fields signature, key-id)
 ```
 
-A valid signature → 201; a tampered one → 400; an untrusted `key-id` → 403
-(unless `ALLOW_UNSIGNED=1`, the local dev bypass). Each publish also appends a
-transparency-log entry **signed by the registry's own Ed25519 log key**
-(`LOG_SIGNING_KEY_PEM` / `LOG_SIGNING_KEY_ID`), served at
-`/v2/transparency-log/:sha`. Namespace ownership (DNS-TXT `_cajeta-publish.<domain>`
-or `.github/cajeta-publish.txt`) is verified via `/v2/namespaces/verify` and
-enforced on publish when `REQUIRE_NAMESPACE=1`.
+A valid signature → 201; a tampered one → 400. The `key-id` must name a key
+inside the **publishing organization's own signed key document**, usable now:
+a key that is merely known to the registry authorises nothing, and a key valid
+in another organization's document is refused (publisher-trust §5.1). An
+organization with no document, or one whose keys have all lapsed, cannot
+publish at all. None of this is behind a flag.
+
+Namespaces are the signed list in that same document, matched segment-aware —
+`dev.cajeta` owns `dev.cajeta.http` and does not own `dev.cajetaevil`. Nothing
+derives an owner from a package name. DNS-TXT (`_cajeta-publish.<domain>`) and
+`.github/cajeta-publish.txt` are still how control of a name is shown, but as
+evidence gathered once when a namespace enters a key document, not as a lookup
+performed on every publish.
+
+Each publish also appends a transparency-log entry **signed by the registry's
+own Ed25519 log key** (`LOG_SIGNING_KEY_PEM` / `LOG_SIGNING_KEY_ID`), served at
+`/v2/transparency-log/:sha`.
 
 **Attestation (provenance).** When a publish carries an `attestation` field, the
 registry verifies the in-toto Statement v1 / SLSA provenance v1 envelope
@@ -184,8 +200,11 @@ shared section dedups across members. `scripts/measure-dedup.sh` proves it
 
 ## Dev notes
 
-- `ALLOW_UNSIGNED=1` (wrangler.toml `[vars]`) relaxes signature + token checks
-  for local seeding. **Set to `0` in production.**
+- `ALLOW_UNSIGNED=1` (wrangler.toml `[vars]`) relaxes only the publish-token
+  lookup, so local fixtures authenticate without a minted token. It does not
+  relax any upload refusal. **Set to `0` in production.**
+- `scripts/dev-trust.mjs` holds the local trust bootstrap: the development
+  root, and `installOrg` for a signed key document plus a publish token.
 - D1 schema: `migrations/`. Re-apply after edits with `npm run migrate:local`.
 - The Worker is a pure API (no static-asset binding) so an unknown route is
   `404 JSON` — the UI is served separately.

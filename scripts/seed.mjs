@@ -3,8 +3,38 @@
 //   npm run migrate:local && npm run dev   # in one terminal
 //   node scripts/seed.mjs                  # in another
 //
+// The §5 upload refusals are unconditional, so this does what a real publisher
+// does rather than leaning on a dev flag: it installs a development root, a
+// signed key document per organization, and a publish key named inside it,
+// then signs each archive with that key. ALLOW_UNSIGNED does not help here and
+// is not meant to — an artifact nobody signed cannot be bound to a publisher.
+//
 // BASE overrides the target (default http://localhost:8787).
 import { createHash } from 'node:crypto';
+import { ensureDevRoot, installOrg, signArchive } from './dev-trust.mjs';
+
+if (ensureDevRoot()) {
+  console.error(
+    '\n.dev.vars now names a development root. Restart `npm run dev`, then ' +
+      're-run this script.',
+  );
+  process.exit(1);
+}
+
+// One organization per namespace we seed under. Namespaces are the SIGNED
+// list; nothing derives them from the package names below.
+const orgs = {
+  'dev.cajeta': installOrg({ organization: 'dev.cajeta', namespaces: ['dev.cajeta'] }),
+  'com.acme': installOrg({ organization: 'com.acme', namespaces: ['com.acme'] }),
+};
+
+function orgFor(name) {
+  const org = Object.values(orgs).find(
+    (o) => name === o.organization || name.startsWith(`${o.organization}.`),
+  );
+  if (!org) throw new Error(`no seeded organization owns '${name}'`);
+  return org;
+}
 
 const BASE = process.env.BASE ?? 'http://localhost:8787';
 
@@ -38,6 +68,7 @@ function manifestFor({ name, version, description, keywords, deps }) {
 
 async function publish(spec) {
   const { name, version } = spec;
+  const org = orgFor(name);
   const manifest = manifestFor(spec);
   const bytes = fakeCja(name, version);
   const sha = sha256Canonical(bytes);
@@ -50,8 +81,18 @@ async function publish(spec) {
   form.set('metadata', JSON.stringify({ name, version, sha256: sha }));
   form.set('manifest', JSON.stringify(manifest));
   form.set('readme', spec.description);
+  form.set('key-id', org.keyId);
+  form.set(
+    'signature',
+    new Blob([signArchive(org.privateKey, bytes)]),
+    `${name}.sig`,
+  );
 
-  const res = await fetch(`${BASE}/v2/publish`, { method: 'POST', body: form });
+  const res = await fetch(`${BASE}/v2/publish`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${org.token}` },
+    body: form,
+  });
   const text = await res.text();
   console.log(`publish ${name}@${version} -> ${res.status} ${text}`);
   if (res.status !== 201 && res.status !== 409) {

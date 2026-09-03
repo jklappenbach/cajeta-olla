@@ -12,7 +12,10 @@ export interface Env {
   CAPABILITY_TTL_SECONDS?: string;
   WELL_KNOWN_BUNDLES?: string; // comma-separated "<name>@<version>"
   SEARCH_PROVIDER?: string; // "d1" | "algolia"
-  ALLOW_UNSIGNED?: string; // "1" enables unsigned dev publishes
+  // "1" relaxes PUBLISH TOKEN lookup for local fixtures (auth.ts). It does
+  // NOT relax any §5 upload refusal: an unsigned upload, or one from an
+  // organization with no signed key document, is refused with it set.
+  ALLOW_UNSIGNED?: string;
   MIRRORS?: string; // JSON array of {url, region}
   BUNDLE_ZSTD_LEVEL?: string; // bundle compression level (default 19)
 
@@ -35,8 +38,6 @@ export interface Env {
   // and nothing else.
   RELEASE_SIGNING_KEY_PEM?: string;
   RELEASE_SIGNING_KEY_ID?: string;
-  // Require a verified namespace proof on publish (off in dev).
-  REQUIRE_NAMESPACE?: string; // "1" enforces
 
   // Algolia search provider (§12). Selected when SEARCH_PROVIDER=algolia and
   // these are set; otherwise the built-in D1 FTS5 provider is used. The admin

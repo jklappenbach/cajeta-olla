@@ -57,18 +57,19 @@ CAPABILITY_TTL_SECONDS = "3600"
 WELL_KNOWN_BUNDLES = ""
 # Search backend: "d1" (built-in FTS5 trigram) or "algolia" (§12).
 SEARCH_PROVIDER = "d1"
-# Allow unsigned publishes + an untrusted key-id (skips Ed25519 verification).
-# Production-safe default is "0" (signing required). Local dev overrides this to
-# "1" via .dev.vars — never enable unsigned on a deployed/public registry.
+# Relaxes PUBLISH TOKEN lookup so local fixtures can authenticate without a
+# minted token. It does NOT relax any §5 upload refusal: with it set, an
+# unsigned upload, an upload from an organization with no signed key document,
+# and an upload outside that document's namespaces are all still refused
+# (publisher-trust §5.1.8). Local dev overrides this to "1" via .dev.vars.
 ALLOW_UNSIGNED = "0"
 # Bundle compression level (§14). 19 = strong cross-member dedup, still
 # client-decodable (windowLog ≤ 27). Lower it if Worker CPU is tight.
 BUNDLE_ZSTD_LEVEL = "19"
-# Require a verified namespace proof on publish (§15). Intentionally "0" at
-# launch: small teams publish without owning a domain. Namespace verification
-# is meant to become a *per-namespace* requirement as a namespace grows
-# (graduated trust), not a global flip to "1". Off for local dev too.
-REQUIRE_NAMESPACE = "0"
+# There is no namespace-enforcement flag. Namespaces are the SIGNED list in an
+# organization's key document and are checked on every publish (§4.1, §5.4).
+# The gate that used to live here was off by default, which made the check it
+# guarded decorative.
 
 # Repository ROOT public key (publisher-trust §3.1). PUBLIC material, so a var
 # and not a secret — and deliberately only the public half. Olla never holds

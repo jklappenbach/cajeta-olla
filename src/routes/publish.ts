@@ -7,17 +7,42 @@
 import { Hono, type Context } from 'hono';
 import type { Env } from '../types';
 import { authenticatePublish } from '../lib/auth';
-import { getVersion, recordPublish, setRetracted, getTrustKey } from '../lib/catalog';
+import { getVersion, recordPublish, setRetracted } from '../lib/catalog';
 import { putBlob, blobKey } from '../lib/storage';
 import { sha256Canonical, toCanonical, toHex } from '../lib/sha';
 import { parseManifestMeta } from '../lib/manifest';
 import { verifyDetached, signLogEntry, base64 } from '../lib/signature';
 import { verifyAttestation } from '../lib/attestation';
-import { domainForPackage, isNamespaceVerified } from '../lib/namespace';
+import {
+  loadOrganization,
+  ownsName,
+  usableKeys,
+  type LoadFailure,
+} from '../lib/organization';
 import { indexPackage, removeFromIndex } from '../lib/search-index';
 import { jsonError } from '../lib/http';
 import { signRelease } from '../lib/sign';
 import { recordMutation } from '../lib/audit';
+
+// Why an upload was refused for want of a usable key document (§5.2, §5.3).
+// Each says what the publisher must do next, because "403" on its own sends
+// somebody to re-mint a token that was never the problem.
+const REFUSAL: Record<LoadFailure, (org: string) => string> = {
+  absent: (org) =>
+    `organization '${org}' has no signed key document, so there is no key to ` +
+    'verify this upload against. Registering one is onboarding, done once by ' +
+    'the owner, and it precedes the first upload (§5.5).',
+  expired: (org) =>
+    `the signed key document for organization '${org}' has expired. It is ` +
+    'still validly signed, which is exactly why the expiry is checked here.',
+  unverified: (org) =>
+    `the stored key document for organization '${org}' does not verify ` +
+    'against the repository root. This is a server-side fault; the operator ' +
+    'must re-upload a root-signed document.',
+  'no-root': () =>
+    'this deployment has no repository root key configured, so no key ' +
+    'document can be verified and no upload can be accepted.',
+};
 
 export const publish = new Hono<{ Bindings: Env }>();
 
@@ -62,36 +87,70 @@ publish.post('/v2/publish', async (c) => {
   const keyId = await fieldToString(form.get('key-id'));
   const sigBuf = await fileToBuffer(form.get('signature'));
   const archiveBytes = new Uint8Array(archive);
-  const dev = c.env.ALLOW_UNSIGNED === '1';
+  const now = Date.now();
 
-  // 2. Namespace ownership (§15) — gated by REQUIRE_NAMESPACE.
-  if (c.env.REQUIRE_NAMESPACE === '1') {
-    const domain = domainForPackage(name);
-    if (!domain || !(await isNamespaceVerified(c.env, domain, auth.principal ?? ''))) {
-      return jsonError(c, 403, `namespace '${domain ?? name}' not verified for publisher`);
-    }
+  // 2. The publishing organization is the AUTHENTICATED PRINCIPAL (§4.5).
+  // No path derives it from the archive's name: dotted names have no fixed
+  // arity, so every rule for "how many leading segments are the org" is wrong
+  // for somebody, and wrong in the direction an attacker gets to pick.
+  const organization = auth.principal ?? '';
+  const lookup = await loadOrganization(c.env, organization, now);
+  if (!lookup.ok) return jsonError(c, 403, REFUSAL[lookup.reason](organization));
+  const orgDoc = lookup.document;
+
+  // 3. Namespace (§5.4), matched segment-aware against the SIGNED list — the
+  // same list the client checks, so the two are one check rather than two
+  // mechanisms sharing a name.
+  if (!ownsName(orgDoc.namespaces, name)) {
+    return jsonError(
+      c,
+      403,
+      `organization '${organization}' does not own '${name}'. Its signed ` +
+        `namespaces are: ${orgDoc.namespaces.join(', ') || '(none)'}`,
+    );
   }
 
-  // 4. Signature — verify the detached Ed25519 sig over the raw archive bytes
-  // against the trusted key named by `key-id`.
-  let storedSigB64: string | null = null;
-  if (sigBuf) {
-    const sig = new Uint8Array(sigBuf);
-    if (!keyId) {
-      if (!dev) return jsonError(c, 400, 'signature present but no key-id');
-    } else {
-      const trust = await getTrustKey(c.env, keyId);
-      if (trust) {
-        const ok = await verifyDetached(trust.public_key, sig, archiveBytes);
-        if (!ok) return jsonError(c, 400, `signature verification failed for key-id '${keyId}'`);
-      } else if (!dev) {
-        return jsonError(c, 403, `untrusted key-id '${keyId}' (not in the registry trust store)`);
-      }
-    }
-    storedSigB64 = base64(sig);
-  } else if (!dev) {
+  // 4. Signature (§5.1) — over the raw archive bytes, against a key inside
+  // THIS organization's own document that is usable right now. Being known to
+  // the server is not the test: a key valid in another organization's
+  // document is a key this upload may not use, which is the hole §1.4.1
+  // describes and this line closes.
+  //
+  // Unconditional (§5.1.8). There is no dev relaxation here — an artifact
+  // nobody signed cannot be bound to a publisher, and putting that behind an
+  // environment variable puts the whole design behind one.
+  if (!sigBuf) {
     return jsonError(c, 400, 'unsigned publish rejected (no signature)');
   }
+  if (!keyId) return jsonError(c, 400, 'signature present but no key-id');
+
+  const usable = usableKeys(orgDoc, now);
+  if (usable.length === 0) {
+    return jsonError(
+      c,
+      403,
+      `every key in the signed key document for '${organization}' is outside ` +
+        'its own validity window. Publish a current document before uploading.',
+    );
+  }
+  const signingKey = usable.find((k) => k.id === keyId);
+  if (!signingKey) {
+    const known = orgDoc.keys.some((k) => k.id === keyId);
+    return jsonError(
+      c,
+      403,
+      known
+        ? `key '${keyId}' is outside its validity window in the key document ` +
+            `for '${organization}'`
+        : `key '${keyId}' is not in the signed key document for ` +
+            `'${organization}'`,
+    );
+  }
+  const sig = new Uint8Array(sigBuf);
+  if (!(await verifyDetached(signingKey.pem, sig, archiveBytes))) {
+    return jsonError(c, 400, `signature verification failed for key-id '${keyId}'`);
+  }
+  const storedSigB64 = base64(sig);
 
   // 3. Integrity — recompute the digest and check it against the claim.
   const computed = await sha256Canonical(archive);
@@ -123,18 +182,14 @@ publish.post('/v2/publish', async (c) => {
   const meta = parseManifestMeta(manifestJson);
 
   // Transparency-log entry signed by the registry's own log key (§15).
-  const now = new Date().toISOString();
+  const publishedAt = new Date().toISOString();
   const logSig = await signLogEntry(
     c.env.LOG_SIGNING_KEY_PEM,
     c.env.LOG_SIGNING_KEY_ID,
     computed,
-    now,
+    publishedAt,
   );
 
-  // §4.5 — the organization is the AUTHENTICATED PRINCIPAL. Never the
-  // archive's name: a name is a string the publisher chooses, and deriving
-  // ownership from one is the defect this design exists to remove.
-  const organization = auth.principal ?? '';
   const signedMetadata = await signRelease(c.env, {
     name,
     version,
@@ -160,7 +215,7 @@ publish.post('/v2/publish', async (c) => {
     logKeyId: logSig.keyId,
     signedMetadata,
     organization,
-    now,
+    now: publishedAt,
   });
 
   await recordMutation(c.env, {

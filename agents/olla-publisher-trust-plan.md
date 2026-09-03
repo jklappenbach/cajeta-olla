@@ -246,35 +246,51 @@ document and a credential that is not a publish token.
 ## Unit 5 — Upload refusals, and namespaces from the signed list
 
 ### 5.1 TDD
-- [ ] 5.1.1 THE refusal: an upload signed by a key valid in ANOTHER
+- [x] 5.1.1 THE refusal: an upload signed by a key valid in ANOTHER
       organization's document is refused (spec §5.1). This is the
       cross-organization case §1.4.1 permits today.
-- [ ] 5.1.2 An upload from an organization with no current document is
+- [x] 5.1.2 An upload from an organization with no current document is
       refused.
-- [ ] 5.1.3 An upload from an organization whose only key has expired is
+- [x] 5.1.3 An upload from an organization whose only key has expired is
       refused.
-- [ ] 5.1.4 A name outside the organization's signed namespaces is refused.
-- [ ] 5.1.5 Segment-aware matching: `dev.cajeta` owns `dev.cajeta.http` and
+- [x] 5.1.4 A name outside the organization's signed namespaces is refused.
+- [x] 5.1.5 Segment-aware matching: `dev.cajeta` owns `dev.cajeta.http` and
       does NOT own `dev.cajetaevil`.
-- [ ] 5.1.6 `uk.co.acme.thing` and `uk.co.evil.thing` do not collide — the
+- [x] 5.1.6 `uk.co.acme.thing` and `uk.co.evil.thing` do not collide — the
       §1.4.2 regression, written as a test so it cannot come back.
-- [ ] 5.1.7 Re-publishing an existing `(name, version)` is refused.
-- [ ] 5.1.8 The refusals are unconditional — no env var turns them off, and
+- [x] 5.1.7 Re-publishing an existing `(name, version)` is refused.
+- [x] 5.1.8 The refusals are unconditional — no env var turns them off, and
       `REQUIRE_NAMESPACE` no longer exists.
 
 ### 5.2 Coding
-- [ ] 5.2.1 `publish.ts` resolves the publishing organization from the
+- [x] 5.2.1 `publish.ts` resolves the publishing organization from the
       authenticated principal, loads its current document, and verifies
       against a key in it that is usable now.
-- [ ] 5.2.2 Namespace matching reads the signed document's list,
+- [x] 5.2.2 Namespace matching reads the signed document's list,
       segment-aware.
-- [ ] 5.2.3 DELETE `domainForPackage` and the `REQUIRE_NAMESPACE` gate.
-- [ ] 5.2.4 The DNS/GitHub proofs move to owner-facing evidence gathered at
+- [x] 5.2.3 DELETE `domainForPackage` and the `REQUIRE_NAMESPACE` gate.
+- [x] 5.2.4 The DNS/GitHub proofs move to owner-facing evidence gathered at
       issuance (spec §4.4); they no longer run on publish.
+- [x] 5.2.5 `scripts/dev-trust.mjs` + `scripts/seed.mjs`: the local seed flow
+      publishes through the refusals rather than around them — a development
+      root, a signed key document per seeded organization, and an archive
+      signature from a key inside it. Consequence of 5.1.8: with no way to
+      turn the refusals off, `npm run seed:local` had no path left.
+- [~] 5.2.6 `scripts/verify-publish.mjs` registers its own key through
+      `POST /v2/keys` and publishes with it, which is exactly the §1.4.1 hole.
+      BLOCKED on 6.3.1: the production smoke test needs an organization whose
+      key document was signed at a real ceremony, and no script can produce
+      that signature — the root is offline by design.
 
 ### 5.3 Acceptance
-- [ ] 5.3.1 `grep -r domainForPackage src/` returns nothing. Spec §7.3 is a
+- [x] 5.3.1 `grep -r domainForPackage src/` returns nothing. Spec §7.3 is a
       check that something does not exist, so it needs a grep, not a test.
+      The comment in `namespace.ts` recording why it went deliberately does
+      not name it, so the gate stays quiet.
+- [x] 5.3.2 Measured against a running `wrangler dev` with `ALLOW_UNSIGNED=1`
+      set: cross-namespace, prefix-shadow, unsigned and foreign-key uploads all
+      refused; the legitimate one 201s. Asserting 5.1.8 in vitest alone would
+      not have shown the flag is genuinely inert in the deployed shape.
 
 ## Unit 6 — Remove the legacy key path, and re-attest
 

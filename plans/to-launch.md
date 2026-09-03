@@ -54,9 +54,12 @@ for production. Vars can be overridden per-deploy or edited in `wrangler.toml`;
 - [ ] Transparency-log signing key (§15) — **secret**, not a var:
       `wrangler secret put LOG_SIGNING_KEY_PEM`
       (and `LOG_SIGNING_KEY_ID` if your build reads it as a secret too).
-- [ ] Turn OFF the dev escape hatches for production:
-  - [ ] `ALLOW_UNSIGNED = "0"` (dev default is `"1"` — **must** be 0 in prod; enforces Ed25519 publish verification).
-  - [ ] `REQUIRE_NAMESPACE = "1"` (dev default `"0"`; require a verified namespace proof on publish).
+- [ ] Turn OFF the dev escape hatch for production:
+  - [ ] `ALLOW_UNSIGNED = "0"` (dev default is `"1"`). It relaxes only the
+        publish-token lookup; the upload refusals (publisher-trust §5) are
+        unconditional and need no flag. There is no `REQUIRE_NAMESPACE` — a
+        namespace is checked against the organization's signed key document on
+        every publish.
 - [ ] Confirm the rest of `[vars]` are intended for prod: `SEARCH_PROVIDER`
       (`d1` to launch; switch to `algolia` later per §12), `WELL_KNOWN_BUNDLES`,
       `CAPABILITY_TTL_SECONDS`, `BUNDLE_ZSTD_LEVEL`.
