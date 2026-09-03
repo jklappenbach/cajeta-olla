@@ -1,5 +1,5 @@
 // D1 query helpers. Routes call these — no raw SQL in route handlers (§8).
-import type { Env, PackageRow, VersionRow, BlobRow, TrustKeyRow } from '../types';
+import type { Env, PackageRow, VersionRow, BlobRow } from '../types';
 import { compareVersions } from './semver';
 import { toCanonical } from './sha';
 
@@ -46,27 +46,9 @@ export async function getTransparency(env: Env, sha: string) {
     }>();
 }
 
-export async function getTrustKey(env: Env, keyId: string): Promise<TrustKeyRow | null> {
-  return env.DB.prepare('SELECT * FROM trust_keys WHERE key_id = ?')
-    .bind(keyId)
-    .first<TrustKeyRow>();
-}
-
-export async function addTrustKey(
-  env: Env,
-  k: { keyId: string; publicKey: string; principal: string | null; fingerprint: string; now: string },
-): Promise<void> {
-  await env.DB.prepare(
-    `INSERT INTO trust_keys (key_id, public_key, principal, fingerprint, created_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(key_id) DO UPDATE SET
-       public_key = excluded.public_key,
-       principal = excluded.principal,
-       fingerprint = excluded.fingerprint`,
-  )
-    .bind(k.keyId, k.publicKey, k.principal, k.fingerprint, k.now)
-    .run();
-}
+// There is no trust-key accessor here. A key is trusted by appearing in a
+// root-signed organization key document (see lib/organization.ts), never by
+// being present in a table — that was the unbound trust (§1.3, §6.1).
 
 export interface PublishInput {
   name: string;

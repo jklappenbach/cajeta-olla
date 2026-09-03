@@ -99,10 +99,19 @@ async function store(
   // Replay (§3.4): accepting an older document reinstates keys the
   // organization has already removed, which is how a revocation gets undone.
   if (existing && doc.issuedAt <= existing.issued_at) {
+    // Equal counts as a refusal, and says so plainly. Re-running a ceremony
+    // command produces a document with the same issued-at, and reporting that
+    // as "stored is newer" sends the operator looking for a clock problem
+    // instead of re-signing with a fresh timestamp.
+    const same = doc.issuedAt === existing.issued_at;
     return jsonError(
       c as never,
       409,
-      `stored document is newer (${existing.issued_at}); refusing ${doc.issuedAt}`,
+      same
+        ? `a document with this issued-at (${doc.issuedAt}) is already stored. ` +
+            'Re-sign with a later issued-at; only a strictly newer document ' +
+            'replaces the stored one.'
+        : `stored document is newer (${existing.issued_at}); refusing ${doc.issuedAt}`,
     );
   }
 

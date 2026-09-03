@@ -75,14 +75,6 @@ export interface VersionRow {
   organization: string | null;
 }
 
-export interface TrustKeyRow {
-  key_id: string;
-  public_key: string; // PEM SPKI
-  principal: string | null;
-  fingerprint: string | null;
-  created_at: string;
-}
-
 export interface BlobRow {
   sha256: string; // "sha256:<hex>"
   size: number;

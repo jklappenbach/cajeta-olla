@@ -295,23 +295,45 @@ document and a credential that is not a publish token.
 ## Unit 6 — Remove the legacy key path, and re-attest
 
 ### 6.1 TDD
-- [ ] 6.1.1 `POST /v2/keys` no longer exists — 404, not 403. A deprecated
+- [x] 6.1.1 `POST /v2/keys` no longer exists — 404, not 403. A deprecated
       endpoint still reachable is still a bypass.
-- [ ] 6.1.2 A key present only in the old `trust_keys` table authorises
+- [x] 6.1.2 A key present only in the old `trust_keys` table authorises
       nothing.
 
 ### 6.2 Coding
-- [ ] 6.2.1 Delete the publish-authenticated key registration.
-- [ ] 6.2.2 Migration retiring `trust_keys`, or scoping it to the archive
+- [x] 6.2.1 Delete the publish-authenticated key registration.
+- [x] 6.2.2 Migration retiring `trust_keys`, or scoping it to the archive
       signatures it still legitimately serves.
-- [ ] 6.2.3 Update `docs/` and `olla-ci-publish.md` in the toolchain repo,
+- [x] 6.2.3 Update `docs/` and `olla-ci-publish.md` in the toolchain repo,
       which documents registering your own key as one-time setup.
+- [x] 6.2.4 `POST /v2/namespaces/verify` moves to OWNER authority and computes
+      the proof token from the PEM in the request. It used to read the key out
+      of `trust_keys`, so retiring that table left it unable to answer; and it
+      was publish-authenticated, which is the authority §4.4 takes away. The
+      route module is renamed `namespaces.ts` — a `keys.ts` that handles no
+      keys is a trap for the next reader.
 
 ### 6.3 Acceptance
-- [ ] 6.3.1 Sign organization documents for the libraries we publish, and
+- [~] 6.3.1 Sign organization documents for the libraries we publish, and
       upload them. Cheap now because only our own libraries publish —
       spec §6.2.1 says this stops being true the moment anyone external
-      does, so it is worth doing before then.
+      does, so it is worth doing before then. BLOCKED on an offline root
+      ceremony, which is the operator's to run: the root is on the stick and
+      nothing here can or should reproduce that signature.
+      Prepared and dry-run against a throwaway root, then end-to-end against
+      a local olla with the development root: `make-org-document.py` produces
+      a document `cajeta trust verify-document` parses fully (refusing only on
+      the root signature, as it must), `POST /v2/admin/org-keys/<org>` stores
+      it under an owner token, the same upload under the wrong URL org is 400,
+      and `GET /v2/org-keys/<org>` serves it back.
+      CUTOVER NOTE: the publish token's principal IS the organization. If
+      `OLLA_TOKEN`'s principal is not `dev.cajeta`, CI publishes break the
+      moment the refusals go live, and re-minting the token is part of this
+      step rather than a separate discovery.
+- [x] 6.3.2 The equal-`issued-at` refusal says "re-sign with a later
+      issued-at" instead of claiming the stored document is newer. Found by
+      re-running the ceremony command during the dry run — the operator path,
+      not a contrived one.
 
 ## Unit 7 — Conformance and deploy
 

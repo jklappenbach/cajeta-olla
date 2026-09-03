@@ -101,8 +101,8 @@ artifacts (`/v2/resolve` → `/v2/blob`, or the v1 artifact path).
 | `POST /v2/publish` (Ed25519 sig + attestation verified) | 10/15 | ✅ |
 | `GET /:pkg/:ver/:pkg-:ver.cja.attestation` | 15 | ✅ |
 | `POST /v2/retract` | 10 | ✅ |
-| `POST /v2/keys` (register trusted Ed25519 key) | 15 | ✅ |
-| `POST /v2/namespaces/verify` (DNS-TXT / github) | 15 | ✅ |
+| `POST /v2/admin/org-keys/:org` (root-signed key document, owner-only) | publisher-trust 3 | ✅ |
+| `POST /v2/namespaces/verify` (DNS-TXT / github, owner-only evidence) | 15 | ✅ |
 | `GET /v2/transparency-log/:sha` (registry-signed entries) | 15 | ✅ |
 | `GET /v2/packages`, `/v2/package/:name` | — | ✅ (UI read surface) |
 | `POST /v2/bundle` (tar.zst, `have`/`want`/`transitive`) | 14 | ✅ (`capabilities.bundle=true`) |
@@ -135,10 +135,16 @@ against a trusted public key (Web Crypto `Ed25519` — byte-compatible with the
 build tool's OpenSSL `EVP_PKEY_ED25519` / `SignAction.cpp`):
 
 ```sh
-# register a publisher's PEM public key
-curl -X POST $BASE/v2/keys -d '{"key-id":"acme-key-1","public-key":"-----BEGIN PUBLIC KEY-----…"}'
+# the OWNER uploads a root-signed key document naming the publisher's key
+curl -X POST $BASE/v2/admin/org-keys/com.acme \
+  -H "Authorization: Bearer $OLLA_ADMIN_TOKEN" --data-binary @org-keys.json
 # publish with the detached 64-byte sig + key-id (multipart fields signature, key-id)
 ```
+
+`POST /v2/keys` is gone. It registered a signing key under *publish*
+authority, so one stolen publish token bought both the upload and the key that
+signed it. It was removed rather than deprecated — a deprecated endpoint that
+still answers is still a bypass.
 
 A valid signature → 201; a tampered one → 400. The `key-id` must name a key
 inside the **publishing organization's own signed key document**, usable now:

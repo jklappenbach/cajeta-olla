@@ -168,6 +168,24 @@ describe('admin uploads', () => {
       expect(row!.issued_at).toBe('2026-06-01T00:00:00Z');
     });
 
+    // Equal is a refusal too — only strictly newer replaces. This is the case
+    // an operator actually hits, by re-running a ceremony command, so the
+    // message has to say "re-sign with a later issued-at" rather than claim
+    // the stored one is newer and send them looking at clocks.
+    it('refuses one with the SAME issued-at, and says why', async () => {
+      const same = await makeEnvelope({
+        payload: orgDocument({
+          organization: 'replay.example',
+          'issued-at': '2026-06-01T00:00:00Z',
+        }),
+      });
+      const res = await upload('/v2/admin/org-keys/replay.example', same);
+      expect(res.status).toBe(409);
+      const body = JSON.stringify(await res.json());
+      expect(body).toContain('already stored');
+      expect(body).not.toContain('stored document is newer');
+    });
+
     it('accepts a newer one', async () => {
       const newer = await makeEnvelope({
         payload: orgDocument({
