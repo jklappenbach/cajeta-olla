@@ -314,7 +314,7 @@ document and a credential that is not a publish token.
       keys is a trap for the next reader.
 
 ### 6.3 Acceptance
-- [~] 6.3.1 Sign organization documents for the libraries we publish, and
+- [x] 6.3.1 Sign organization documents for the libraries we publish, and
       upload them. Cheap now because only our own libraries publish —
       spec §6.2.1 says this stops being true the moment anyone external
       does, so it is worth doing before then. BLOCKED on an offline root
@@ -326,7 +326,9 @@ document and a credential that is not a publish token.
       the root signature, as it must), `POST /v2/admin/org-keys/<org>` stores
       it under an owner token, the same upload under the wrong URL org is 400,
       and `GET /v2/org-keys/<org>` serves it back.
-      REOPENED 2026-09-03 by the first real publish: the document names key
+      CLOSED 2026-09-03 after one round trip. Re-signed with
+      `--key-id cajeta-ci-1`, uploaded (200), CI re-run, publish succeeded.
+      The story of the round trip, because the lesson is the durable part: the document names key
       id `olla-ci-1`, and CI signs with `cajeta-ci-1`. `olla-ci-1` was an
       example id lifted out of olla-ci-publish.md and never checked against
       what CI actually sends, so the ceremony command carried it. The upload
@@ -427,14 +429,27 @@ shipped** (spec §1.7).
       artifact.
 
 ### 7.3 Acceptance
-- [ ] 7.3.1 A default-configured cajeta client installs a real library from
-      production olla and reports a verified publisher. 7.2.2 is done; what
-      remains is that no artifact in production carries signed release
-      metadata yet, and the organization a client verifies against comes
-      from that metadata. So this needs a REPUBLISH of at least one library
-      through CI (which now signs), not just an install against what is
-      there. Cheapest path: tag one small library and let `lib-release.yml`
-      publish it.
+- [~] 7.3.1 A default-configured cajeta client installs a real library from
+      production olla and reports a verified publisher.
+      `dev.cajeta.unit@0.2.5` is published and is the first artifact in the
+      registry a client can verify. EVERY CRYPTOGRAPHIC LINK IS PROVEN
+      against production bytes, with openssl rather than with the code that
+      produced them, and with the keys taken from the SERVED documents the
+      way a client gets them:
+        root -> org key document -> `cajeta-ci-1` -> verifies the archive
+        root -> delegation       -> `release-1`   -> verifies the release
+                                                     metadata
+        signed sha256 == the archive's actual digest
+        signed organization == dev.cajeta, from the authenticated principal
+      WHAT IS NOT DONE: watching the `cajeta` binary itself do this during
+      an install. A scaffolded project depending on 0.2.5 builds clean under
+      `CAJETA_REQUIRE_SIGNATURE=strict`, but the build cache hits and the
+      dependency is unused by the probe's source, so resolution never runs —
+      the build proves nothing either way. Three attempts at forcing a
+      resolve hit unknown-argument errors (`--verbose`, `info <pkg>`), so
+      this stops here rather than guessing at more CLI shapes. What remains
+      is a fixture whose source actually IMPORTS the dependency, which is
+      the same gap as 4.3.1.
 - [ ] 7.3.2 Hand back to the toolchain's `publisher-trust` Unit 6, which
       flips the client default. Spec 9.3 there forbids flipping it before
       this point, and this is that point.
