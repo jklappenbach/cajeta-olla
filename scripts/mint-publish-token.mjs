@@ -37,6 +37,25 @@ if (daysAt !== -1 && (!Number.isFinite(days) || days <= 0)) {
   process.exit(2);
 }
 
+// Absorb a pending OAuth refresh before the write.
+//
+// Measured 2026-09-05: wrangler refreshes its token lazily, and the request
+// that TRIGGERS the refresh goes out with the stale one and fails
+// `code 7403: account not authorized` — while the very next request
+// succeeds. Three mints died that way. `whoami` is a harmless read, so it
+// takes the hit instead of the INSERT.
+//
+// Failing here is not fatal: if whoami itself errors the write below will
+// report the real problem, and swallowing this keeps an offline-ish
+// environment from being blocked by a diagnostic call.
+if (remote) {
+  try {
+    execFileSync('npx', ['wrangler', 'whoami'], { stdio: 'ignore' });
+  } catch {
+    /* the write reports the real failure */
+  }
+}
+
 const token = `olla-publish-${randomBytes(24).toString('base64url')}`;
 const hash = createHash('sha256').update(token).digest('hex');
 const now = new Date().toISOString();
