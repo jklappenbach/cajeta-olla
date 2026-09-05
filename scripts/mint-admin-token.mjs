@@ -40,11 +40,30 @@ const sql =
   `INSERT INTO admin_tokens (token_hash, principal, scopes, created_at, expires_at) ` +
   `VALUES ('${hash}', '${principal.replace(/'/g, "''")}', 'admin', '${now}', ${expiresAt});`;
 
-execFileSync(
-  'npx',
-  ['wrangler', 'd1', 'execute', 'olla-catalog', remote ? '--remote' : '--local', '--command', sql],
-  { stdio: 'inherit' },
-);
+try {
+  execFileSync(
+    'npx',
+    ['wrangler', 'd1', 'execute', 'olla-catalog', remote ? '--remote' : '--local', '--command', sql],
+    { stdio: 'inherit' },
+  );
+} catch {
+  // The insert did not happen, so the token this run generated is dead —
+  // it is deliberately NOT printed. Printing one that authenticates nothing
+  // is worse than printing none: it gets stored, and the failure surfaces
+  // later as a mysterious 403.
+  //
+  // The usual cause is a stale Cloudflare OAuth token: the FIRST --remote
+  // call of a session fails with code 7403 while the next one succeeds,
+  // because the first triggers the refresh. Re-running is normally enough.
+  console.error(
+    `\nmint: the database write failed, so NO token was created.\n` +
+    `If the error above is 7403 (account not authorized), this is usually a\n` +
+    `stale auth token — re-run the command; the first --remote call of a\n` +
+    `session can fail while the next succeeds. Otherwise check\n` +
+    `\`npx wrangler whoami\`.\n`,
+  );
+  process.exit(1);
+}
 
 console.log(`\nprincipal : ${principal}`);
 console.log(`expires   : ${days ? `${days} days` : 'never'}`);
