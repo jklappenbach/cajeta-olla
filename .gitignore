@@ -27,3 +27,13 @@ ui/.vite/
 # and nothing generated is ever committed.
 build/
 **/.cajeta/cache/
+
+# Credentials. NEVER committed — this repository is public.
+#
+# Added after two token files were swept into history by a `git add -A`:
+# a revoked admin token and a LIVE publish token, both pushed. The rule is
+# a pattern rather than two names so the next one is caught by shape.
+*token*.txt
+*.token
+olla-admin-token*
+olla-publish-token*
