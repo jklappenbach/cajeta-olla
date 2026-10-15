@@ -223,7 +223,23 @@ publish.post('/v2/publish', async (c) => {
     action: 'release.publish',
     target: `${name}@${version}`,
     before: null,
-    after: { sha256: computed, organization, signed: signedMetadata !== null },
+    after: {
+      sha256: computed,
+      organization,
+      signed: signedMetadata !== null,
+      // Trusted publishing (§5.1): which repository, ref and workflow the
+      // identity token named; absent for a token publish.
+      ...(auth.identity
+        ? {
+            identity: {
+              provider: auth.identity.provider,
+              repository: auth.identity.repository,
+              ref: auth.identity.ref,
+              workflowRef: auth.identity.workflowRef,
+            },
+          }
+        : {}),
+    },
   });
 
   // 7. Index-on-publish (Algolia; D1 FTS is maintained by triggers).

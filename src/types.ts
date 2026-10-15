@@ -32,6 +32,12 @@ export interface Env {
   // "1" advertises capabilities.revocation. Off until /v2/revocations is
   // re-issued on a schedule — it fails CLOSED for every client at once.
   ADVERTISE_REVOCATION?: string;
+  // Trusted publishing (olla-trusted-publishing §2). The audience Olla
+  // accepts in a GitHub identity token, the key set URL, and a key set
+  // supplied directly for TESTS only (§2.5).
+  OIDC_AUDIENCE?: string;
+  OIDC_JWKS_URL?: string;
+  OIDC_JWKS_JSON?: string;
   // The DELEGATED key that signs release metadata (§2.6). A SECRET — unlike
   // the root, this one is online because it signs on every publish, which is
   // the whole point of delegating: a compromise here forges release metadata

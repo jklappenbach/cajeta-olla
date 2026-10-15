@@ -13,6 +13,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { authenticateAdmin } from '../lib/auth';
+import { deleteBinding, listBindings, publicView, putBinding } from '../lib/publishers';
 import { auditStatement } from '../lib/audit';
 import {
   delegatedKeys,
@@ -156,4 +157,65 @@ admin.post('/v2/admin/org-keys/:org', (c) =>
   store(c, 'org-keys', c.req.param('org')),
 );
 admin.post('/v2/admin/repository-keys', (c) => store(c, 'repository-keys', ''));
+
+// Trusted publishing (olla-trusted-publishing §3.6): which repository may
+// publish as which organization. Owner authority only; a publish token and an
+// identity token are both just unknown tokens here (§3.6 is the standing
+// negative, plan 2.1.2).
+interface BindingBody {
+  provider?: string;
+  repository?: string;
+  'ref-pattern'?: string;
+}
+async function bindingBody(c: { req: { text(): Promise<string> } }): Promise<BindingBody | null> {
+  try {
+    const text = await c.req.text();
+    return text ? (JSON.parse(text) as BindingBody) : {};
+  } catch {
+    return null;
+  }
+}
+function bindingInput(body: BindingBody | null): { provider: 'github'; repository: string } | string {
+  if (!body) return 'body is not valid JSON';
+  if (body.provider !== 'github') return "'provider' must be 'github'";
+  if (!body.repository || !/^[^/\s]+\/[^/\s]+$/.test(body.repository)) {
+    return "'repository' must be 'owner/name'";
+  }
+  return { provider: 'github', repository: body.repository };
+}
+
+admin.get('/v2/admin/publishers/:org', async (c) => {
+  const auth = await authenticateAdmin(c.env, c.req.raw);
+  if (!auth.ok) return jsonError(c as never, auth.status ?? 401, auth.message ?? 'unauthorized');
+  const bindings = await listBindings(c.env, c.req.param('org'));
+  return c.json({ organization: c.req.param('org'), bindings: bindings.map(publicView) });
+});
+
+admin.put('/v2/admin/publishers/:org', async (c) => {
+  const auth = await authenticateAdmin(c.env, c.req.raw);
+  if (!auth.ok) return jsonError(c as never, auth.status ?? 401, auth.message ?? 'unauthorized');
+  const body = await bindingBody(c);
+  const input = bindingInput(body);
+  if (typeof input === 'string') return jsonError(c as never, 400, input);
+  const result = await putBinding(
+    c.env,
+    { ...input, organization: c.req.param('org'), refPattern: body?.['ref-pattern'] },
+    auth.principal ?? 'owner',
+  );
+  if (!result.ok) return jsonError(c as never, result.status, result.message);
+  return c.json({ binding: publicView(result.binding) });
+});
+
+admin.delete('/v2/admin/publishers/:org', async (c) => {
+  const auth = await authenticateAdmin(c.env, c.req.raw);
+  if (!auth.ok) return jsonError(c as never, auth.status ?? 401, auth.message ?? 'unauthorized');
+  const input = bindingInput(await bindingBody(c));
+  if (typeof input === 'string') return jsonError(c as never, 400, input);
+  const result = await deleteBinding(
+    c.env,
+    { ...input, organization: c.req.param('org') },
+    auth.principal ?? 'owner',
+  );
+  return c.json({ removed: result.removed });
+});
 admin.post('/v2/admin/revocations', (c) => store(c, 'revocations', ''));

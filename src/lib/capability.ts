@@ -14,6 +14,7 @@ export interface CapabilityDoc {
     supercompress: boolean;
     'transparency-log': boolean;
     'well-known-bundles': string[];
+    'trusted-publishing': string[];
   };
   mirrors?: { url: string; region: string }[];
   'ttl-seconds': number;
@@ -53,6 +54,9 @@ export function capabilityDoc(env: Env): CapabilityDoc {
       revocation: env.ADVERTISE_REVOCATION === '1',
       'transparency-log': true,
       'well-known-bundles': wellKnown,
+      // Trusted publishing (olla-trusted-publishing §4.1): the identity
+      // providers whose tokens POST /v2/publish accepts as a bearer.
+      'trusted-publishing': ['github'],
     },
     'ttl-seconds': parseInt(env.CAPABILITY_TTL_SECONDS ?? '3600', 10),
   };
