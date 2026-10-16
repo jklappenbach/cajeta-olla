@@ -1,4 +1,4 @@
-[explore: apply 2026-10-16 plan review: close stale items, land coop-tile Phase A/B plans on agents/main]
+[explore: primavera spec and plan for cabra's session and websocket asks, with Phoenix]
 xpu-cooperative-tile-phase-a:7.1.1
 xpu-kernel-adaptor:4.2.1
 xpu-kernel-adaptor:1.6.7
@@ -45,7 +45,6 @@ xpu-kernel-adaptor:14.1.1
 [explore: cajeta-llm release unit]
 [explore: write the 2026-10-16 cabra decisions into spec 11 and unit 12]
 [explore: cabra re-pin to toolchain v0.42.1, llm, http 0.6.0 ws migration]
-[explore: primavera spec and plan for cabra's session and websocket asks, with Phoenix]
 cabra:12.2.1
 cabra:12.1.1
 cabra:6.3.2
