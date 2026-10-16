@@ -491,8 +491,10 @@ shipped** (spec §1.7).
 ### 8.3 Acceptance
 - [x] 8.3.1 `npm test` green (135), typecheck clean, conformance 12 of 14
       (unchanged).
-- [ ] 8.3.2 Deploy (Julian's word); repeated reads of
-      `/v2/org-keys/dev.cajeta` stop reaching D1.
+- [x] 8.3.2 Deploy (Julian's word); repeated reads of
+      `/v2/org-keys/dev.cajeta` stop reaching D1. Version b5647269,
+      2026-10-16: after warm-up, 30 of 30 reads from MIA were
+      `cf-cache-status: HIT`; revocations stay `no-store`.
 
 ## Unit 9 — Deleting an organization (spec §3.9, from 7.1.2)
 
