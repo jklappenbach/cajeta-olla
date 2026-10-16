@@ -42,7 +42,6 @@ codebook-quants:9.2.8
 prefill-routes:5.2.1
 xpu-kernel-adaptor:14.1.1
 [explore: cajeta-llm release unit]
-[explore: write the 2026-10-16 cabra decisions into spec 11 and unit 12]
 [explore: cabra re-pin to toolchain v0.42.1, llm, http 0.6.0 ws migration]
 primavera-live-sessions:1.1.1
 cabra:12.2.1
