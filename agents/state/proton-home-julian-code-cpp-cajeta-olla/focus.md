@@ -20,6 +20,7 @@ xpu-kernel-adaptor:12.1.1
 wave-row-geometry:2.3.2
 codebook-quants:9.2.1
 xpu-kernel-adaptor:6.4.1
+xpu-kernel-adaptor:6.4.3
 codebook-quants:9.3.3
 codebook-quants:9.2.2
 [explore: host-floor spec review and plan]
@@ -42,7 +43,7 @@ codebook-quants:9.2.8
 prefill-routes:5.2.1
 xpu-kernel-adaptor:14.1.1
 [explore: cajeta-llm release unit]
-[explore: cabra spec 11 and unit 12 design pass with Julian]
+[explore: write the 2026-10-16 cabra decisions into spec 11 and unit 12]
 [explore: cabra re-pin to toolchain v0.42.1, llm, http 0.6.0 ws migration]
 [explore: primavera spec and plan for cabra's session and websocket asks, with Phoenix]
 cabra:12.2.1
@@ -59,3 +60,8 @@ cabra:12.3.1
 cabra:5.1.1
 cabra:7.3.1
 cabra:10.1.1
+olla-publisher-trust:4.3.1
+olla-publisher-trust:7.3.1
+olla-publisher-trust:7.3.2
+olla-publisher-trust:9.1.1
+[explore: production LOG_SIGNING_KEY_PEM and _ID]
