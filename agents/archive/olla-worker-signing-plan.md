@@ -106,7 +106,7 @@ the five repositories that hold it.
       2026-09-03 to 2027-09-03) with `olla-root-1`; upload with
       `POST /v2/admin/org-keys/dev.cajeta`; set `ORG_SIGNING_KEYS` from
       `cajeta-ci-2`, piped from the file.
-- [ ] 2.2.7 Julian runs `./seal.sh` then `./cleanup.sh` in `~/olla-key`.
+- [x] 2.2.7 Julian runs `./seal.sh` then `./cleanup.sh` in `~/olla-key`.
 
 ### 2.3 Acceptance
 - [x] 2.3.1 `GET /v2/capabilities` on olla.cajeta.dev carries

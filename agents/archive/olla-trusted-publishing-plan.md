@@ -133,6 +133,9 @@ publish action requests that token itself. No repository holds
 - [x] 4.2.3 cajeta-cloud `ci.yml`: the same, and the skip branch deleted.
 
 ### 4.3 Acceptance
-- [~] 4.3.1 Deploy the Worker (Julian's word), bind the six repositories,
+- [x] 4.3.1 Deploy the Worker (Julian's word), bind the six repositories,
       publish one library release with no `OLLA_TOKEN` in its repository
       (spec §8.3), then remove the secret from the five that hold it.
+      Done 2026-10-16: 17 repositories bound; primavera 0.3.0 and
+      cajeta-cloud 0.3.2 published with no `OLLA_TOKEN`; the secret removed
+      from codec, http, logging, primavera and unit.
