@@ -2,7 +2,9 @@
 
 Spec: `specs/olla-worker-signing-spec.md`. Approved by Julian 2026-10-15
 ("approved"). Decisions: reuse `cajeta-ci-1`; sign only identity uploads
-that arrive unsigned.
+that arrive unsigned. Amended 2026-10-16 (Julian, "Approved"):
+`cajeta-ci-1`'s private key was lost, so the Worker holds a new
+`cajeta-ci-2` (2.2.3–2.2.7).
 
 ## Description
 
@@ -92,12 +94,26 @@ the five repositories that hold it.
 ### 2.2 Coding
 - [x] 2.2.1 Julian sets `ORG_SIGNING_KEYS` from the sealed `cajeta-ci-1`
       with `wrangler secret put` (spec §3.3, §6.1). The key never passes
-      through a session transcript.
+      through a session transcript. Superseded: the key was never sealed
+      and is lost; see 2.2.3–2.2.7.
 - [x] 2.2.2 Deploy the Worker (Julian's word).
+- [x] 2.2.3 Generate `~/olla-key/cajeta-ci-2.pem` (0600) and `.pub`.
+- [x] 2.2.4 `seal.sh` and `cleanup.sh` list `cajeta-ci-2.pem` in SEALED;
+      the README's sealed-archive table names it (spec §3.4).
+- [x] 2.2.5 `MakeOrgDocument` takes comma-separated `OLLA_KEY_ID` /
+      `OLLA_PUBLIC_KEY`; checked against a throwaway root.
+- [x] 2.2.6 Sign `org-dev-cajeta-2.json` (`cajeta-ci-1`, `cajeta-ci-2`,
+      2026-09-03 to 2027-09-03) with `olla-root-1`; upload with
+      `POST /v2/admin/org-keys/dev.cajeta`; set `ORG_SIGNING_KEYS` from
+      `cajeta-ci-2`, piped from the file.
+- [ ] 2.2.7 Julian runs `./seal.sh` then `./cleanup.sh` in `~/olla-key`.
 
 ### 2.3 Acceptance
 - [x] 2.3.1 `GET /v2/capabilities` on olla.cajeta.dev carries
       `server-signing: ["github"]`.
+- [x] 2.3.2 `/v2/org-keys/dev.cajeta` serves both keys (issued-at
+      2026-10-16T13:01:19Z); `cajeta trust verify-document` reports 2 of 2
+      usable.
 
 ## Unit 3 — The client stops sending the pair
 
@@ -127,16 +143,18 @@ the five repositories that hold it.
 ## Unit 4 — Migration
 
 ### 4.1 TDD
-- [ ] 4.1.1 None: the acceptance is a production release (spec §7.3).
+- [x] 4.1.1 None: the acceptance is a production release (spec §7.3).
 
 ### 4.2 Coding
-- [ ] 4.2.1 Release one library that never held the pair (cajeta-cloud
-      is the candidate) by tag, Julian choosing the version.
-- [ ] 4.2.2 Delete `OLLA_SIGNING_KEY_PEM` and `OLLA_SIGNING_KEY_ID` from
+- [x] 4.2.1 Release one library that never held the pair (cajeta-cloud
+      is the candidate) by tag, Julian choosing the version. v0.3.2: the
+      first attempt of run 38841395838 hit the §2.7 server fault (wrong
+      held key); the re-run after 2.2.6 published.
+- [x] 4.2.2 Delete `OLLA_SIGNING_KEY_PEM` and `OLLA_SIGNING_KEY_ID` from
       codec, http, logging, primavera and unit (spec §6.2).
 
 ### 4.3 Acceptance
-- [ ] 4.3.1 The release lands on Olla; its audit row says
-      `signed-by: server`.
-- [ ] 4.3.2 `gh secret list` on every bound repository shows no `OLLA_*`
-      secret.
+- [x] 4.3.1 The release lands on Olla; its audit row says
+      `signed-by: server` (dev.cajeta.cloud 0.3.2, key `cajeta-ci-2`).
+- [x] 4.3.2 `gh secret list` on every bound repository shows no `OLLA_*`
+      secret (17 of 17, 2026-10-16).

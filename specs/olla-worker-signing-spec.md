@@ -14,9 +14,11 @@ by Julian 2026-10-15: the Worker holds the organization's CI signing key
 as a Cloudflare secret and signs an upload that a verified identity sends
 unsigned. No repository holds any Olla secret.
 
-**1.3** The key is the one already in dev.cajeta's key document,
-`cajeta-ci-1` (valid to 2027-09-03). Reusing it needs no root ceremony;
-the document does not change.
+**1.3** The key is `cajeta-ci-2`, added to dev.cajeta's key document
+beside `cajeta-ci-1` (both valid to 2027-09-03). Reusing `cajeta-ci-1` was
+the first choice, but its private half was never sealed and is lost
+(found 2026-10-16). It stays in the document so the releases it signed
+still verify; no one can sign with it once §6.2 runs.
 
 **1.4 What this trades.** A repository's secrets are readable by any
 workflow in it, so push access to a publishing repository already reached
@@ -35,8 +37,8 @@ the repositories.
 
 **1.6 Non-goals.**
 
-**1.6.1** Rotating `cajeta-ci-1`. A fresh key needs a root ceremony and is
-separate work.
+**1.6.1** Removing `cajeta-ci-1` from the document. It leaves at the
+document's next annual reissue.
 
 **1.6.2** Signing an upload authenticated by a publish token. A leaked
 token must not yield a signed release.
@@ -90,6 +92,9 @@ written to D1 or R2.
 truth and the recovery path. Setting the secret is an owner act with
 `wrangler secret put`; nothing in the Worker writes it.
 
+**3.4** The CI private key is in the sealed set, so `cleanup.sh` refuses
+to shred it before it is sealed.
+
 ## 4. Capability and client
 
 **4.1** Capabilities advertise `server-signing: ["github"]` only when §2
@@ -114,8 +119,9 @@ workflows that call the action directly stop passing the signing pair.
 
 ## 6. Migration
 
-**6.1** The owner sets the secret for dev.cajeta from the sealed copy of
-`cajeta-ci-1`.
+**6.1** The owner generates `cajeta-ci-2`, signs a dev.cajeta document
+carrying both keys with the root, uploads it, sets the secret from
+`cajeta-ci-2`, and seals the key.
 
 **6.2** After one library releases through server signing, the owner
 deletes `OLLA_SIGNING_KEY_PEM` and `OLLA_SIGNING_KEY_ID` from the five
