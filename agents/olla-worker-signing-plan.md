@@ -102,27 +102,27 @@ the five repositories that hold it.
 ## Unit 3 — The client stops sending the pair
 
 ### 3.1 TDD
-- [ ] 3.1.1 `olla-publish.mjs` with no signing pair uploads without
+- [x] 3.1.1 `olla-publish.mjs` with no signing pair uploads without
       `signature` and `key-id` fields when the stub registry advertises
       `server-signing` (spec §4.2).
-- [ ] 3.1.2 With both inputs empty strings it behaves as with neither.
-- [ ] 3.1.3 With no pair and no `server-signing` advertised, it fails
+- [x] 3.1.2 With both inputs empty strings it behaves as with neither.
+- [x] 3.1.3 With no pair and no `server-signing` advertised, it fails
       before uploading, naming the capability.
-- [ ] 3.1.4 With the pair it signs exactly as before.
+- [x] 3.1.4 With the pair it signs exactly as before.
 
 ### 3.2 Coding
-- [ ] 3.2.1 `action.yml`: `signing-key-pem` and `signing-key-id` become
+- [x] 3.2.1 `action.yml`: `signing-key-pem` and `signing-key-id` become
       `required: false`, default `''`.
-- [ ] 3.2.2 `olla-publish.mjs`: sign only when both are non-empty;
+- [x] 3.2.2 `olla-publish.mjs`: sign only when both are non-empty;
       otherwise probe capabilities and upload unsigned.
-- [ ] 3.2.3 `lib-release.yml`: stop declaring and passing the pair.
-- [ ] 3.2.4 Move `ci/v1` to the commit carrying 3.2.1–3.2.3.
-- [ ] 3.2.5 cajeta-cloud, codec, docs, graph, ml, recsys, timeseries and
+- [x] 3.2.3 `lib-release.yml`: stop declaring and passing the pair.
+- [x] 3.2.4 Move `ci/v1` to the commit carrying 3.2.1–3.2.3.
+- [x] 3.2.5 cajeta-cloud, codec, docs, graph, ml, recsys, timeseries and
       xgboost: drop `signing-key-pem` / `signing-key-id` from the publish
       step and correct header comments that name the pair (spec §4.3).
 
 ### 3.3 Acceptance
-- [ ] 3.3.1 Every touched workflow's `main` run is green.
+- [x] 3.3.1 Every touched workflow's `main` run is green.
 
 ## Unit 4 — Migration
 
