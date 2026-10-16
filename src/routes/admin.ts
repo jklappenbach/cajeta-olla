@@ -23,6 +23,7 @@ import {
   type VerifiedDocument,
 } from '../lib/envelope';
 import { jsonError } from '../lib/http';
+import { evictDocument } from './trust';
 
 export const admin = new Hono<{ Bindings: Env }>();
 
@@ -147,6 +148,7 @@ async function store(
       after: { keyId: doc.keyId, issuedAt: doc.issuedAt, notAfter: doc.notAfter },
     }),
   ]);
+  await evictDocument(c.req.raw.url, doc.kind, subject);
 
   return Response.json({
     stored: { kind: doc.kind, subject, keyId: doc.keyId, notAfter: doc.notAfter },

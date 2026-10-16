@@ -14,7 +14,7 @@
 // annually and cache for hours. A revocation must not cache at all: it is the
 // document whose whole value is arriving late-breaking, and a cached one is a
 // revocation an attacker gets for free.
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import type { Env } from '../types';
 import type { DocumentKind } from '../lib/envelope';
 
@@ -118,6 +118,34 @@ function absent(kind: DocumentKind, subject: string): Response {
   );
 }
 
-trust.get('/v2/org-keys/:org', (c) => serve(c, 'org-keys', c.req.param('org')));
-trust.get('/v2/repository-keys', (c) => serve(c, 'repository-keys', ''));
+/** Answer from this colo's cache when a request context exists; store only `public` 200s. */
+async function edgeCached(
+  c: Context<{ Bindings: Env }>,
+  kind: DocumentKind,
+  subject: string,
+): Promise<Response> {
+  let ctx: { waitUntil(p: Promise<unknown>): void };
+  try {
+    ctx = c.executionCtx;
+  } catch {
+    return serve(c, kind, subject);
+  }
+  const key = new Request(c.req.url);
+  const hit = await caches.default.match(key);
+  if (hit) return hit;
+  const res = await serve(c, kind, subject);
+  if (res.status === 200 && res.headers.get('Cache-Control')?.startsWith('public')) {
+    ctx.waitUntil(caches.default.put(key, res.clone()));
+  }
+  return res;
+}
+
+/** Drop this colo's cached copy of a document after the owner replaces it. */
+export async function evictDocument(requestUrl: string, kind: DocumentKind, subject: string) {
+  const path = kind === 'org-keys' ? `/v2/org-keys/${subject}` : `/v2/${kind}`;
+  await caches.default.delete(new Request(new URL(path, requestUrl)));
+}
+
+trust.get('/v2/org-keys/:org', (c) => edgeCached(c, 'org-keys', c.req.param('org')));
+trust.get('/v2/repository-keys', (c) => edgeCached(c, 'repository-keys', ''));
 trust.get('/v2/revocations', (c) => serve(c, 'revocations', ''));

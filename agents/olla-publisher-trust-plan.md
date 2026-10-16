@@ -194,7 +194,7 @@ document and a credential that is not a publish token.
 ### 3.3 Acceptance
 - [x] 3.3.1 A cajeta client with the production root installed fetches and
       verifies the real delegation from a locally running olla.
-- [~] 3.3.2 Measure the origin read rate under a repeated-install loop and
+- [x] 3.3.2 Measure the origin read rate under a repeated-install loop and
       confirm the cache is doing the work — the storage choice assumes the
       origin is hit per colo per TTL, not per install, and an assumption
       that load-bearing deserves one measurement. BLOCKED on Unit 7: this
@@ -202,6 +202,11 @@ document and a credential that is not a publish token.
       number would measure the loop rather than the cache. The headers it
       depends on are verified (3.1.7, 3.1.8) — what is unmeasured is
       whether Cloudflare honours them at the rate the D1 choice assumed.
+      MEASURED 2026-10-16 against production: 48 reads of org-keys,
+      repository-keys, resolve and versions.json carried no
+      `cf-cache-status` at all. A Worker's own responses are not
+      edge-cached, so every read hit D1 despite `max-age=21600`. The
+      assumption was false; Unit 8 makes it true.
 
 ## Unit 4 — Signed release metadata
 
@@ -276,11 +281,17 @@ document and a credential that is not a publish token.
       root, a signed key document per seeded organization, and an archive
       signature from a key inside it. Consequence of 5.1.8: with no way to
       turn the refusals off, `npm run seed:local` had no path left.
-- [~] 5.2.6 `scripts/verify-publish.mjs` registers its own key through
+- [x] 5.2.6 `scripts/verify-publish.mjs` registers its own key through
       `POST /v2/keys` and publishes with it, which is exactly the §1.4.1 hole.
       BLOCKED on 6.3.1: the production smoke test needs an organization whose
       key document was signed at a real ceremony, and no script can produce
       that signature — the root is offline by design.
+      Done 2026-10-16: replaced by `scripts/verify-release.mjs`, read-only.
+      It verifies root → delegation → release metadata and root → org
+      document → archive signature for a production release, with the root
+      taken from `wrangler.toml`. Publishing is proven by CI identity
+      releases. Passes for cloud 0.3.2 (`cajeta-ci-2`) and primavera 0.3.0
+      (`cajeta-ci-1`).
 
 ### 5.3 Acceptance
 - [x] 5.3.1 `grep -r domainForPackage src/` returns nothing. Spec §7.3 is a
@@ -403,7 +414,7 @@ shipped** (spec §1.7).
       §3.9 requires that deleting an organization show the owner which
       archives that makes unverifiable, and confirm before proceeding. No
       unit in this plan covers it and nothing implements it. Recorded rather
-      than quietly added — it needs its own unit.
+      than quietly added — it needs its own unit. Now Unit 9.
 
 ### 7.2 Coding
 - [x] 7.2.1 `npm run test:conformance` boots `wrangler dev`, bootstraps the
@@ -450,6 +461,9 @@ shipped** (spec §1.7).
       this stops here rather than guessing at more CLI shapes. What remains
       is a fixture whose source actually IMPORTS the dependency, which is
       the same gap as 4.3.1.
+      2026-10-16: `scripts/verify-release.mjs` re-proves the server chain on
+      demand; dev.cajeta.cloud@0.3.2 (`cajeta-ci-2`, server-signed) is the
+      current target for the client half.
 - [ ] 7.3.2 Hand back to the toolchain's `publisher-trust` Unit 6, which
       flips the client default. Spec 9.3 there forbids flipping it before
       this point, and this is that point.
@@ -457,3 +471,40 @@ shipped** (spec §1.7).
       conformance suite, over the wire, rather than left as an intention.
       Turning it on is separate work and needs scheduled re-issuance first
       (spec §6.4).
+
+## Unit 8 — Edge cache for trust documents (from 3.3.2)
+
+### 8.1 TDD
+- [x] 8.1.1 A second read of an organization document is answered from the
+      colo cache, not D1.
+- [x] 8.1.2 An admin upload evicts the cached organization document.
+- [x] 8.1.3 A revocation is never served from the cache.
+- [x] 8.1.4 An absence (404) is never served from the cache.
+
+### 8.2 Coding
+- [x] 8.2.1 `trust.ts`: org-keys and repository-keys answer from
+      `caches.default` and store `public` 200s; revocations bypass it.
+- [x] 8.2.2 `admin.ts`: a stored document evicts its cached copy in the
+      colo that took the upload. Other colos expire it at `max-age`, which
+      the header already allowed.
+
+### 8.3 Acceptance
+- [x] 8.3.1 `npm test` green (135), typecheck clean, conformance 12 of 14
+      (unchanged).
+- [ ] 8.3.2 Deploy (Julian's word); repeated reads of
+      `/v2/org-keys/dev.cajeta` stop reaching D1.
+
+## Unit 9 — Deleting an organization (spec §3.9, from 7.1.2)
+
+### 9.1 TDD
+- [ ] 9.1.1 Asking to delete an organization lists the archives that
+      become unverifiable, and deletes nothing.
+- [ ] 9.1.2 Deletion proceeds only with an explicit confirmation of that
+      list.
+
+### 9.2 Coding
+- [ ] 9.2.1 An owner-only delete endpoint with the preview and confirm
+      steps, audited.
+
+### 9.3 Acceptance
+- [ ] 9.3.1 Spec §3.9 holds; the §8.3 self-checks in 7.1.2 can close.
