@@ -15,6 +15,7 @@ export interface CapabilityDoc {
     'transparency-log': boolean;
     'well-known-bundles': string[];
     'trusted-publishing': string[];
+    'server-signing': string[];
   };
   mirrors?: { url: string; region: string }[];
   'ttl-seconds': number;
@@ -57,6 +58,9 @@ export function capabilityDoc(env: Env): CapabilityDoc {
       // Trusted publishing (olla-trusted-publishing §4.1): the identity
       // providers whose tokens POST /v2/publish accepts as a bearer.
       'trusted-publishing': ['github'],
+      // olla-worker-signing §4.1: an unsigned upload from these identity
+      // providers is signed by the Worker with the organization's held key.
+      'server-signing': ['github'],
     },
     'ttl-seconds': parseInt(env.CAPABILITY_TTL_SECONDS ?? '3600', 10),
   };

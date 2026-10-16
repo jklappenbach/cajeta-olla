@@ -11,7 +11,8 @@ import { getVersion, recordPublish, setRetracted } from '../lib/catalog';
 import { putBlob, blobKey } from '../lib/storage';
 import { sha256Canonical, toCanonical, toHex } from '../lib/sha';
 import { parseManifestMeta } from '../lib/manifest';
-import { verifyDetached, signLogEntry, base64 } from '../lib/signature';
+import { verifyDetached, signDetached, signLogEntry, base64 } from '../lib/signature';
+import { heldKey } from '../lib/held-keys';
 import { verifyAttestation } from '../lib/attestation';
 import {
   loadOrganization,
@@ -84,7 +85,7 @@ publish.post('/v2/publish', async (c) => {
     return jsonError(c, 400, "metadata must include 'name' and 'version'");
   }
 
-  const keyId = await fieldToString(form.get('key-id'));
+  let keyId = await fieldToString(form.get('key-id'));
   const sigBuf = await fileToBuffer(form.get('signature'));
   const archiveBytes = new Uint8Array(archive);
   const now = Date.now();
@@ -119,7 +120,31 @@ publish.post('/v2/publish', async (c) => {
   // Unconditional (§5.1.8). There is no dev relaxation here — an artifact
   // nobody signed cannot be bound to a publisher, and putting that behind an
   // environment variable puts the whole design behind one.
-  if (!sigBuf) {
+  //
+  // olla-worker-signing §2: an identity upload sent with neither signature nor
+  // key-id is signed here with the organization's held key, and that signature
+  // then meets every check below exactly as a client's would.
+  let sig: Uint8Array | null = sigBuf ? new Uint8Array(sigBuf) : null;
+  let signedBy: 'client' | 'server' = 'client';
+  if (!sig && !keyId && auth.identity) {
+    const held = heldKey(c.env, organization);
+    if (!held) {
+      return jsonError(
+        c,
+        403,
+        `unsigned upload, and there is no server-held key for organization ` +
+          `'${organization}'. Sign the upload, or the owner must hold a key for it.`,
+      );
+    }
+    try {
+      sig = await signDetached(held.pem, archiveBytes);
+    } catch {
+      return jsonError(c, 500, `server fault: the held key for '${organization}' could not be loaded`);
+    }
+    keyId = held.keyId;
+    signedBy = 'server';
+  }
+  if (!sig) {
     return jsonError(c, 400, 'unsigned publish rejected (no signature)');
   }
   if (!keyId) return jsonError(c, 400, 'signature present but no key-id');
@@ -146,8 +171,15 @@ publish.post('/v2/publish', async (c) => {
             `'${organization}'`,
     );
   }
-  const sig = new Uint8Array(sigBuf);
   if (!(await verifyDetached(signingKey.pem, sig, archiveBytes))) {
+    if (signedBy === 'server') {
+      return jsonError(
+        c,
+        500,
+        `server fault: the held key for '${organization}' does not match key ` +
+          `'${keyId}' in its signed key document`,
+      );
+    }
     return jsonError(c, 400, `signature verification failed for key-id '${keyId}'`);
   }
   const storedSigB64 = base64(sig);
@@ -227,6 +259,8 @@ publish.post('/v2/publish', async (c) => {
       sha256: computed,
       organization,
       signed: signedMetadata !== null,
+      'signed-by': signedBy,
+      'key-id': keyId,
       // Trusted publishing (§5.1): which repository, ref and workflow the
       // identity token named; absent for a token publish.
       ...(auth.identity

@@ -86,3 +86,7 @@ MCowBQYDK2VwAyEASFBathIl7S6b1o47OeDrXMn/dxLxAQgBeGMq6R46wBM=
 # Transparency-log signing key (§15) is a SECRET — do NOT put it here. Locally
 # set LOG_SIGNING_KEY_ID / LOG_SIGNING_KEY_PEM in .dev.vars (gitignored); in
 # production use `wrangler secret put LOG_SIGNING_KEY_PEM`.
+
+# Organization CI signing keys (olla-worker-signing §3) are a SECRET: JSON
+# {"<org>": {"key-id": "...", "private-key": "<PKCS#8 PEM>"}}, set with
+# `wrangler secret put ORG_SIGNING_KEYS` from the owner's sealed copy.

@@ -44,6 +44,9 @@ export interface Env {
   // and nothing else.
   RELEASE_SIGNING_KEY_PEM?: string;
   RELEASE_SIGNING_KEY_ID?: string;
+  // Organization CI keys the Worker signs unsigned identity uploads with
+  // (olla-worker-signing §3). A SECRET: JSON {org: {key-id, private-key}}.
+  ORG_SIGNING_KEYS?: string;
 
   // Algolia search provider (§12). Selected when SEARCH_PROVIDER=algolia and
   // these are set; otherwise the built-in D1 FTS5 provider is used. The admin
