@@ -87,16 +87,16 @@ the five repositories that hold it.
 ## Unit 2 — Deploy and set the key (owner)
 
 ### 2.1 TDD
-- [ ] 2.1.1 None: verified in production by 2.3.
+- [x] 2.1.1 None: verified in production by 2.3.
 
 ### 2.2 Coding
-- [ ] 2.2.1 Julian sets `ORG_SIGNING_KEYS` from the sealed `cajeta-ci-1`
+- [x] 2.2.1 Julian sets `ORG_SIGNING_KEYS` from the sealed `cajeta-ci-1`
       with `wrangler secret put` (spec §3.3, §6.1). The key never passes
       through a session transcript.
-- [ ] 2.2.2 Deploy the Worker (Julian's word).
+- [x] 2.2.2 Deploy the Worker (Julian's word).
 
 ### 2.3 Acceptance
-- [ ] 2.3.1 `GET /v2/capabilities` on olla.cajeta.dev carries
+- [x] 2.3.1 `GET /v2/capabilities` on olla.cajeta.dev carries
       `server-signing: ["github"]`.
 
 ## Unit 3 — The client stops sending the pair
