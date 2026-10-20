@@ -234,3 +234,37 @@ describe('every servable release resolves (4.1.7)', () => {
     }
   });
 });
+
+// publisher-trust spec 4.1: a client verifies the archive against a key in the
+// publishing organization's own document, so resolve must serve the signature
+// the publisher uploaded and the key id it names. Both ride the plain half:
+// the signature is self-authenticating against the organization's key.
+describe("the publisher's archive signature (spec 4.1)", () => {
+  const archive = 'CAJETA-ARCHIVE\ndev.release.sig\n1.0.0\n';
+
+  beforeAll(async () => {
+    expect(
+      (await publishAs(org, 'dev.release.sig', '1.0.0', {
+        env: releaseEnv(),
+        body: archive,
+      })).status,
+    ).toBe(201);
+  });
+
+  it('serves the signature and key id beside the plain half', async () => {
+    const { body } = await doResolve('dev.release.sig', '1.0.0');
+    expect(typeof body.signature).toBe('string');
+    expect(body['key-id']).toBe(org.keyId);
+  });
+
+  it('serves a signature the organization key verifies over the archive', async () => {
+    const { body } = await doResolve('dev.release.sig', '1.0.0');
+    const ok = await crypto.subtle.verify(
+      'Ed25519',
+      org.pair.publicKey,
+      fromBase64(body.signature),
+      new TextEncoder().encode(archive),
+    );
+    expect(ok).toBe(true);
+  });
+});

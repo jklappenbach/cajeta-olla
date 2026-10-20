@@ -52,6 +52,13 @@ resolve.get('/v2/resolve', async (c) => {
   if (row.retracted === 1 && row.retracted_reason) {
     body['retracted-reason'] = row.retracted_reason;
   }
+  // The publisher's own archive signature and the key it names (spec 4.1), so
+  // a client verifies the bytes against the organization's key document. Plain
+  // half: the signature authenticates itself against that key.
+  if (row.signature) {
+    body.signature = row.signature;
+    if (row.key_id) body['key-id'] = row.key_id;
+  }
   // The signed half, carried in the SAME response so verification costs no
   // extra round trip (§2.6). It is never merged into the plain fields above:
   // the client reads the envelope as authoritative and ignores them, because
